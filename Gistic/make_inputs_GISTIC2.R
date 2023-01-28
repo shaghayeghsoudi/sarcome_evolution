@@ -4,7 +4,7 @@ library(GenomicRanges)
 #gistic2 -b ./softwares/test/output_test/ -mk ./softwares/test/examplefiles/markersfile.txt -seg ./softwares/test/examplefiles/segmentationfile.txt -refgene ./softwares/gistic2/support/refgenefiles/hg19.mat 
 #gistic2 -b ./softwares/test/output_sarcoma  -seg ./softwares/test/example_sarcoma/cnv_data_sarcoma_segmenttaion.txt -refgene ./softwares/gistic2/support/refgenefiles/hg19.mat 
 gistic2 -b ./99-base_outputs-merged-per-sample  -seg ./03-inputs-gistic/cnv_data_sarcoma_merged_across_regions_meanCNA.txt -refgene /home/users/shsoudi/softwares/gistic2/support/refgenefiles/hg19.mat 
-gistic2 -b ./03-inputs-gistic/test2_out  -seg ./03-inputs-gistic/test2/test2_ordered.txt -refgene /home/users/shsoudi/softwares/gistic2/support/refgenefiles/hg19.mat 
+gistic2 -b ./03-inputs-gistic/test2_out  -seg ./03-inputs-gistic/test2/ditest2_ordered_final.txt -refgene /home/users/shsoudi/softwares/gistic2/support/refgenefiles/hg19.mat 
 
 
 #### prepare input segmentation file for running GISTIC2
