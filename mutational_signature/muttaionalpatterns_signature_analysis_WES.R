@@ -1,7 +1,8 @@
 
-### Mutational signature analysis with Muttaionalpatterns 
-### whole exome data ###
-rm(list = ls())
+### Mutational signature analysis with Muttaionalpatterns package in R
+## for vignette see: https://bioconductor.org/packages/release/bioc/vignettes/MutationalPatterns/inst/doc/Introduction_to_MutationalPatterns.html
+
+#rm(list = ls())
 library(MutationalPatterns)
 library(BSgenome)
 library(dplyr)
@@ -15,7 +16,7 @@ library(ref_genome, character.only = TRUE)
 setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs")
 
 
-meta<-read.table(file = "metadata_updated.txt", header = FALSE, sep= "\t")[,c(1:4,6)]
+meta<-read.table(file = "metadata_updated_shaghayegh_Jan2023.txt", header = FALSE, sep= "\t")[,c(1:4,6)]
 colnames(meta)<-c("sample_id", "purity","ploidy","RT_status","RT_code")
 meta$unique_sample_id<-gsub("_.*$","",meta$sample_id)
 
@@ -44,7 +45,7 @@ mutaion_RT$RT_status<-gsub("noRT-2","noRT",mutaion_RT$RT_status)
 
 mutaion_RT$RTtretment<-ifelse(mutaion_RT$RT_status== "preRT", "naive",
                         ifelse(mutaion_RT$RT_status== "noRT", "naive",
-                        ifelse(mutaion_RT$RT_status== "postRT", "treatment",
+                        ifelse(mutaion_RT$RT_status== "postRT", "irradiated",
                         "-")))
 
 mutaion_RT$identifier<-paste(mutaion_RT$unique_sample_id.x,mutaion_RT$RT_status, sep = "_")
@@ -58,7 +59,7 @@ for (i in 1:length(samples)){
     out_res<-rbind(mutaion_RT_focal_nodup,out_res)  
 }
 
-
+## convert to vcf file format
 out_res$ID<-rep(".",nrow(out_res))
 out_res$QUAL<-rep(".",nrow(out_res))
 out_res$FILTER<-rep(".",nrow(out_res))
@@ -79,7 +80,6 @@ out_res$id2<-paste(out_res$Ref,out_res$Alt, sep = "/")
 out_res$ID<-paste(out_res$id1,out_res$id2, sep = "_")
 
 
-
 muttaion_selected_cols<-out_res[,c("Chromosome","Start","ID","Ref","Alt","QUAL","FILTER","INFO","FORMAT","allele","identifier")]
 colnames(muttaion_selected_cols)<-c("#CHROM","POS","ID","REF","ALT"	,"QUAL"	,"FILTER",	"INFO",	"FORMAT","SAMPLE", "sample_id")
 colnames(muttaion_selected_cols)<-c("#CHROM","POS","ID","REF","ALT"	,"QUAL"	,"FILTER",	"INFO",	"FORMAT","SAMPLE", "sample_id")
@@ -94,7 +94,7 @@ for (ii in 1:length(samples)){
     focal_vcf<-focal_vcf[,-11]
     #focal_vcf<- focal_vcf[!grepl("-",focal_vcf$REF),]
     #focal_vcf<- focal_vcf[!grepl("-",focal_vcf$ALT),]
-    write.table(focal_vcf, file = paste("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/filtered_variants/vcf_format_with_indels/",samples[ii],".filtered.variants.oxomerge.final.vcf", sep = ""),row.names= FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
+    write.table(focal_vcf, file = paste("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/filtered_variants/vcf_format_with_indels/",samples[ii],".filtered.variants.oxomerge.final.Jan2023.vcf", sep = ""),row.names= FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
 }
 
 
@@ -113,26 +113,25 @@ for (ii in 1:length(samples)){
 #}
 
 
-### vcf format 
-
+### example how vcf format should look like
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	PD21928b
 #1	105605108	1:105605108_T/A	T	A	429.75	PASS	.	GT:AD:DP:GQ:PL	0/0:29,0:29:75:0,75,818
 #1	120042428	1:120042428_T/C	T	C	440.79	PASS	.	GT:AD:DP:GQ:PL	0/0:27,0:27:78:0,78,862
-#1	153419426	1:153419426_G/A	G	A	358.57	PASS	.	GT:AD:DP:GQ:PL	0/0:28,0:29:63:0,63,589
+
 
 ####################################
 #### run the muttaionalpatterns ####
-vcf_files <- list.files("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/filtered_variants/vcf_format_with_indels", pattern = "*.filtered.variants.oxomerge.final.vcf",full.names = TRUE)
-#sample_names <- c("SRC125_postRT","SRC125_preRT","SRC127_postRT","SRC127_preRT")
-sample_names <- c("SRC125_postRT","SRC125_preRT","SRC127_postRT","SRC127_preRT","SRC130_noR","SRC150_postRT","SRC167_postRT","SRC167_preRT","SRC168_noRT","SRC169_postRT","SRC169_preRT","SRC170_postRT","SRC170_preRT","SRC171_postRT","SRC171_preRT","SRC172_noRT","SRC173_noR","TB11985_postRT","TB12052_postRT","TB13092_noRT","TB13712_noRT","TB13959_noRT","TB22446_postRT","TB8016_noRT","TB9051_postRT","TB9051_preRT","TB9573_noRT")
-sar_grl <- read_vcfs_as_granges(vcf_files, sample_names, ref_genome, predefined_dbs_mbs = TRUE)
+vcf_files <- list.files("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/filtered_variants/vcf_format_with_indels", pattern = "*.filtered.variants.oxomerge.final.Jan2023.vcf",full.names = TRUE)
+sample_names <- samples
+sar_grl <- read_vcfs_as_granges(vcf_files, sample_names, ref_genome, predefined_dbs_mbs = TRUE)  ## Any neighbouring SNVs will be merged into DBS/MBS variants.
+                                                                      ## Set the 'predefined_dbs_mbs' to 'TRUE' if you don't want this.
 #sar_snv_grl <- get_mut_type(sar_grl, type = "snv")
 #sar_indel_grl <- get_mut_type(sar_grl, type = "indel")
 #sar_dbs_grl <- get_mut_type(sar_grl, type = "dbs")
 #sar_mbs_grl <- get_mut_type(sar_grl, type = "mbs")
 
 #indel_grl <- read_vcfs_as_granges(vcf_files, sample_names, 
-                                  ref_genome, type = "indel")
+#                                 ref_genome, type = "indel")
 
 ######
 ##indel_grl <- get_indel_context(indel_grl, ref_genome)
@@ -151,81 +150,49 @@ sar_grl <- read_vcfs_as_granges(vcf_files, sample_names, ref_genome, predefined_
 muts <- mutations_from_vcf(sar_grl[[1]])
 head(muts, 12)
 
-
 types <- mut_type(sar_grl[[1]])
 head(types, 12)
-
 
 context <- mut_context(sar_grl[[1]], ref_genome)
 head(context, 12)
 
-
-
 type_context <- type_context(sar_grl[[1]], ref_genome)
 lapply(type_context, head, 12)
 
-
 type_occurrences <- mut_type_occurrences(sar_grl, ref_genome)
-write.table(type_occurrences, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/type_occurrences_muutaionpattern_exome_noindels.txt", col.names = TRUE, row.names = TRUE, sep = "\t",quote = FALSE)
-
-p1 <- plot_spectrum(type_occurrences)
-p2 <- plot_spectrum(type_occurrences, CT = TRUE)
-p3 <- plot_spectrum(type_occurrences, CT = TRUE, 
-                    indv_points = TRUE, legend = FALSE)
-library("gridExtra")
-
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/Mutation_spectrum_exome_all_RT_no_indel.pdf", width = 12, height = 5)
-plot_all<-grid.arrange(p1, p2, p3, ncol = 3)
-print(plot_all)
-dev.off()
+write.table(type_occurrences, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/type_occurrences_muutaionpattern_exome_noindels_Jan2023.txt", col.names = TRUE, row.names = TRUE, sep = "\t",quote = FALSE)
 
 
-pre<-type_occurrences[grepl("pre", rownames(type_occurrences)),]
-p1_pre <- plot_spectrum(pre)
-p2_pre <- plot_spectrum(pre, CT = TRUE)
-p3_pre <- plot_spectrum(pre, CT = TRUE, 
-                    indv_points = TRUE, legend = FALSE)
+## customized plots
+type_occurrences$RTstatus<-gsub(".*_","",rownames(type_occurrences))
+rownames(type_occurrences)<-NULL
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/Mutation_spectrum_exome_preRT_noindel.pdf", width = 12, height = 5)
-plot_pre<-grid.arrange(p1_pre, p2_pre, p3_pre, ncol = 3)
-print(plot_pre)
-dev.off()
+types<-c("C>A","C>G","C>T","T>A","T>C","T>G","C>T at CpG","C>T other")
+out_res<-NULL
+for (ii in 1:length(types)){
+    focal_type<-data.frame("count"=type_occurrences[,ii])
+    focal_type$type<-rep(names(type_occurrences[ii]))
+    focal_type$RTstatus<-type_occurrences$RTstatus
+    out_res<-rbind(focal_type,out_res) 
 
+  }
 
-post<-type_occurrences[grepl("post", rownames(type_occurrences)),]
-p1_post <- plot_spectrum(post)
-p2_post <- plot_spectrum(post, CT = TRUE)
-p3_post <- plot_spectrum(post, CT = TRUE, 
-                    indv_points = TRUE, legend = FALSE)
-
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/Mutation_spectrum_exome_postRT_noindel.pdf", width = 12, height = 5)
-plot_post<-grid.arrange(p1_post, p2_post, p3_post, ncol = 3)
-print(plot_post)
-dev.off()
-
-
-#p4 <- plot_spectrum(type_occurrences, by = tissue, CT = TRUE, legend = TRUE)
-#
-#p5 <- plot_spectrum(type_occurrences, CT = TRUE, 
-#                    legend = TRUE, error_bars = "stdev")
-#grid.arrange(p4, p5, ncol = 2, widths = c(4, 2.3))
+out_res$RTstatus<-gsub("preRT","noRT",out_res$RTstatus)
+box_type<-ggplot(out_res, aes(x=type, y=count, fill=RTstatus)) + 
+    geom_boxplot()
+ggsave(filename="~/Desktop/boxplot_nucleotide_types_per_radiation.jpg", plot=box_type, height = 5, width = 8)
 
 
 ## 96 muttaional profile
 mut_mat <- mut_matrix(vcf_list = sar_grl, ref_genome = ref_genome)
 head(mut_mat)
-
-
-
 plot_96_profile(mut_mat[, c(1: 7)])
 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/Mutation_spectrum_exome_96profile_noindel.pdf", width = 10, height = 30)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/Mutation_spectrum_exome_96profile_noindel_Jan2023.pdf", width = 10, height = 30)
 plot_A<-plot_96_profile(mut_mat[, c(1:27)])
 print(plot_A)
 dev.off()
-
-###
 
 
 #### mutational signature
@@ -237,7 +204,7 @@ estimate <- nmf(mut_mat, rank = 2:5, method = "brunet",
                 nrun = 10, seed = 123456, .opt = "v-p")
 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/NMF_optimal_factorization_rank_exome_96profile_noindel.pdf", width = 5, height = 5)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/NMF_optimal_factorization_rank_exome_96profile_noindel_Jan2023.pdf", width = 5, height = 5)
 estimate<-plot(estimate)
 plot(estimate)
 print(estimate)
@@ -247,7 +214,8 @@ dev.off()
 nmf_res <- extract_signatures(mut_mat, rank = 3, nrun = 10, single_core = TRUE)
 
 nmf_res_contribution<-data.frame(nmf_res$contribution)
-write.table(nmf_res_contribution, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/out_res_nmf_res_contribution_exome_96profile_noindel.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
+rownames(nmf_res_contribution)<-c("SBS1-like","SBSA","SBSB")
+write.table(nmf_res_contribution, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/out_res_nmf_res_contribution_exome_96profile_noindel_Jan2023.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
 
 #combi_mat = rbind(indel_counts, dbs_counts)
 #nmf_res_combi <- extract_signatures(combi_mat, rank = 2, nrun = 10, single_core = TRUE)
@@ -261,13 +229,13 @@ nmf_res <- rename_nmf_signatures(nmf_res, signatures, cutoff = 0.85)
 
 #Visualizing NMF results
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/96profile_noindel_NMF_exome.pdf", width = 7, height = 7)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/96profile_noindel_NMF_exome_Jan2023.pdf", width = 7, height = 7)
 sig_profile<-plot_96_profile(nmf_res$signatures, condensed = TRUE)
 print(sig_profile)
 dev.off()
 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/barplot_contribution_noindel_NMF_exome.pdf", width = 5, height = 5)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/barplot_contribution_noindel_NMF_exome_Jan2023.pdf", width = 5, height = 5)
 contribution<-plot_contribution(nmf_res$contribution, nmf_res$signature,
   mode = "relative"
 )
@@ -276,12 +244,6 @@ dev.off()
 
 
 ### plot the heatmap
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/heatmap_contribution_noindel_NMF_exome.pdf", width = 7, height = 5)
-heatmap_contribution<-plot_contribution_heatmap(nmf_res$contribution, 
-                          cluster_samples = TRUE, 
-                          cluster_sigs = TRUE)
-print(heatmap_contribution)
-dev.off()
 
 
 hclust_signatures <- cluster_signatures(nmf_res$signatures, method = "average")
@@ -294,11 +256,14 @@ samples_order <- colnames(mut_mat)[hclust_samples$order]
 samples_order
 
 
-
-plot_contribution_heatmap(nmf_res$contribution,
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/heatmap_contribution_noindel_NMF_exome.pdf", width = 7, height = 5)
+heatmap_contribution<-plot_contribution_heatmap(nmf_res$contribution,
   sig_order = signatures_order, sample_order = samples_order,
   cluster_sigs = FALSE, cluster_samples = FALSE
 )
+print(heatmap_contribution)
+dev.off()
+
 
 
 
@@ -314,10 +279,10 @@ plot_compare_profiles(mut_mat[, 1],
 #Find mathematically optimal contribution of COSMIC signatures
 fit_res <- fit_to_signatures(mut_mat, signatures)
 fit_contribution<-data.frame(fit_res$contribution)
-write.table(fit_contribution, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/out_res_fit_to_cosmic_contribution_signature_WES_noindel.txt", col.names = TRUE, row.names = TRUE, sep = "\t",quote = FALSE)
+write.table(fit_contribution, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/out_res_fit_to_cosmic_contribution_signature_WES_noindel_Jan2023.txt", col.names = TRUE, row.names = TRUE, sep = "\t",quote = FALSE)
 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/barplot_fit_to_cosmic_contribution_signature_WES_noindel.pdf", width = 10, height = 10)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/barplot_fit_to_cosmic_contribution_signature_WES_noindel_Jan2023.pdf", width = 10, height = 10)
 cos_contribution<-plot_contribution(fit_res$contribution,
   coord_flip = FALSE,
   mode = "absolute"
