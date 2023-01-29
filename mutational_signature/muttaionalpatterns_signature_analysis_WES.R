@@ -1,5 +1,9 @@
 
-### Mutational signature analysis with Muttaionalpatterns package in R
+
+## Title: Mutational signature analysis with Muttaionalpatterns package in R
+# Original Author:  Shaghayegh Soudi
+# Contributors:    NA 
+# Date: January 2023
 ## for vignette see: https://bioconductor.org/packages/release/bioc/vignettes/MutationalPatterns/inst/doc/Introduction_to_MutationalPatterns.html
 
 #rm(list = ls())
