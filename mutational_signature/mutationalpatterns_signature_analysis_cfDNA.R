@@ -509,7 +509,6 @@ dev.off()
 
 
 #### box plot of cosmic differences bteween pre and postRT samples 
-
 out_res_cos2<-NULL
 for(ss in 1:length(samples)){
 

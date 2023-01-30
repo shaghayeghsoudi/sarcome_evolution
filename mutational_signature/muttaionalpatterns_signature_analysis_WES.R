@@ -3,22 +3,23 @@
 ## Title: Mutational signature analysis with Muttaionalpatterns package in R
 # Original Author:  Shaghayegh Soudi
 # Contributors:    NA 
-# Date: January 2023
+# Date: November 2022
 ## for vignette see: https://bioconductor.org/packages/release/bioc/vignettes/MutationalPatterns/inst/doc/Introduction_to_MutationalPatterns.html
 
 #rm(list = ls())
 library(MutationalPatterns)
 library(BSgenome)
-library(dplyr)
+library(ggplot2)
+#library(dplyr)
 library(stringr)
-library(tidyr)
+#library(tidyr)
+library(ggpubr)
 #head(available.genomes())
 
 ref_genome <- "BSgenome.Hsapiens.UCSC.hg19"
 library(ref_genome, character.only = TRUE)
 
 setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs")
-
 
 meta<-read.table(file = "metadata_updated_shaghayegh_Jan2023.txt", header = FALSE, sep= "\t")[,c(1:4,6)]
 colnames(meta)<-c("sample_id", "purity","ploidy","RT_status","RT_code")
@@ -135,7 +136,7 @@ sar_grl <- read_vcfs_as_granges(vcf_files, sample_names, ref_genome, predefined_
 #sar_mbs_grl <- get_mut_type(sar_grl, type = "mbs")
 
 #indel_grl <- read_vcfs_as_granges(vcf_files, sample_names, 
-#                                 ref_genome, type = "indel")
+#                              ref_genome, type = "indel")
 
 ######
 ##indel_grl <- get_indel_context(indel_grl, ref_genome)
@@ -148,6 +149,10 @@ sar_grl <- read_vcfs_as_granges(vcf_files, sample_names, ref_genome, predefined_
 #plot the indel spectra
 #plot_indel_contexts(indel_counts, condensed = TRUE)
 
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/Mutation_spectrum_exome_indels_Jan2023.pdf", width = 10, height = 30)
+indels<-plot_main_indel_contexts(indel_counts)
+print(indels)
+dev.off()
 #Using other signature matrixes
 
 #####
@@ -199,7 +204,7 @@ print(plot_A)
 dev.off()
 
 
-#### mutational signature
+#### mutational signature 
 #### denovo signature
 # 1: NMF
 mut_mat <- mut_mat + 0.0001
@@ -214,12 +219,80 @@ plot(estimate)
 print(estimate)
 dev.off()
 
-### I tool three signature (the most common approach is to choose the smallest rank for which cophenetic correlation coefficient starts decreasing)
+### I chose three signature 
+### the most common approach is to choose the smallest rank for which cophenetic correlation coefficient starts decreasing
 nmf_res <- extract_signatures(mut_mat, rank = 3, nrun = 10, single_core = TRUE)
+#rownames(nmf_res$contribution)<-c("SBS1-like","SBSA","SBSB")
+#colnames(nmf_res$signatures) <- c("SBS1-like","SBSA","SBSB")
+
 
 nmf_res_contribution<-data.frame(nmf_res$contribution)
 rownames(nmf_res_contribution)<-c("SBS1-like","SBSA","SBSB")
 write.table(nmf_res_contribution, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/out_res_nmf_res_contribution_exome_96profile_noindel_Jan2023.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
+
+
+out_res_nmf<-NULL
+for (jj in 1:ncol(nmf_res_contribution)){
+
+  nmf_focal<-data.frame("contribution"= nmf_res_contribution[,jj])
+  normalized<-1/colSums(nmf_focal)
+  nmf_focal$relative_contribution<-(nmf_focal$contribution)*normalized
+  nmf_focal$signature<-rownames(nmf_res_contribution)
+  nmf_focal$patient_ID<-colnames(nmf_res_contribution[jj])
+  out_res_nmf<-rbind( nmf_focal,out_res_nmf)
+
+}
+
+## make bar plot of relative contribution of each signature
+out_res_nmf$RTstatus<-gsub(".*_","",out_res_nmf$patient_ID)
+denovo_contribution<-ggplot(out_res_nmf, aes(fill=signature , y=relative_contribution, x=patient_ID)) + 
+    geom_bar(position="fill", stat="identity")
+     denovo_contribution + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
+ggsave(filename="~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/barplot_mutpatterns_relative contribution_denovo_SNVs.jpg", height = 5, width = 5)
+
+
+##### compare if there is any difference between signatures among different pre,post and noRT samples ###
+out_res_nmf$RTstatus<-gsub("preRT","noRT",out_res_nmf$RTstatus)
+SBS1.like<-out_res_nmf[out_res_nmf$signature=="SBS1-like",]
+SBSA<-out_res_nmf[out_res_nmf$signature=="SBSA",]
+SBSB<-out_res_nmf[out_res_nmf$signature=="SBSB",]
+
+
+
+### box plots of difference betwen groups in each signature ###
+res <- wilcox.test(relative_contribution~ RTstatus,
+                   data = SBS1.like,
+                   exact = FALSE)
+plot_sig1<-ggplot(SBS1.like, aes(x=RTstatus, y=relative_contribution, fill = RTstatus)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=0.7) +
+                labs(title="SBS1.like") 
+                F1<-plot_sig1 + stat_compare_means()
+
+
+plot_sig2<-ggplot(SBSA, aes(x=RTstatus, y=relative_contribution, fill = RTstatus)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=0.7)+
+                labs(title="SBSA")
+                F2<-plot_sig2 + stat_compare_means()
+
+
+plot_sig3<-ggplot(SBSB, aes(x=RTstatus, y=relative_contribution, fill = RTstatus)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=0.7)+
+                labs(title="SBSB")
+                F3<-plot_sig3 + stat_compare_means()
+
+
+library("gridExtra")
+pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/boxplot_relative_contribution_customized_WED_SNVs_Jan2023.pdf", width = 4, height = 9)
+plot_all_box<-grid.arrange(F1,F2,F3, nrow= 3)
+print(plot_all_box)
+dev.off()
+
 
 #combi_mat = rbind(indel_counts, dbs_counts)
 #nmf_res_combi <- extract_signatures(combi_mat, rank = 2, nrun = 10, single_core = TRUE)
@@ -260,15 +333,13 @@ samples_order <- colnames(mut_mat)[hclust_samples$order]
 samples_order
 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/heatmap_contribution_noindel_NMF_exome.pdf", width = 7, height = 5)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/heatmap_contribution_noindel_NMF_exome_clustered.pdf", width = 7, height = 5)
 heatmap_contribution<-plot_contribution_heatmap(nmf_res$contribution,
   sig_order = signatures_order, sample_order = samples_order,
-  cluster_sigs = FALSE, cluster_samples = FALSE
+  cluster_sigs = TRUE, cluster_samples = TRUE
 )
 print(heatmap_contribution)
 dev.off()
-
-
 
 
 plot_compare_profiles(mut_mat[, 1],
@@ -278,8 +349,8 @@ plot_compare_profiles(mut_mat[, 1],
 )
 
 
-######
-#Signature refitting
+#########################
+## Signature refitting
 #Find mathematically optimal contribution of COSMIC signatures
 fit_res <- fit_to_signatures(mut_mat, signatures)
 fit_contribution<-data.frame(fit_res$contribution)
@@ -295,10 +366,120 @@ print(cos_contribution)
 dev.off()
 
 
-##Stricter refitting
+samples<-colnames(fit_contribution)
+#samples<-samples[c(-6,-18)]
+fit_contribution$cosmic<-rownames(fit_contribution)
+
+out_res_cos<-NULL
+for(ss in 1:length(samples)){
+
+   fit_contribution_focal<-fit_contribution[,c(samples[ss],"cosmic")]
+   colnames(fit_contribution_focal)<-c("contribution","cosmic")
+   fit_contribution_focal_order<-fit_contribution_focal[order(fit_contribution_focal$contribution,decreasing = TRUE),]   
+   fit_contribution_focal_order<-fit_contribution_focal_order[fit_contribution_focal_order$contribution>0,]
+   fit_contribution_focal_order<-fit_contribution_focal_order[1:5,]
+   fit_contribution_focal_order$sample_id<-rep(samples[ss])
+   out_res_cos<-rbind(out_res_cos,fit_contribution_focal_order)
+}
+
+rownames(out_res_cos)<-NULL
+out_res_cos<-out_res_cos[out_res_cos$sample_id!="cosmic",]
+out_res_cos$contribution<-as.integer(out_res_cos$contribution)
+
+pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/barplot_cosmic_contribution_customized_Jan2023.pdf", width = 5, height = 5)
+plotcosmic<-ggplot(out_res_cos, aes(x = sample_id, y= contribution,fill = cosmic)) + 
+   geom_bar(stat = "identity")+
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+print(plotcosmic)
+dev.off() 
+
+
+#### box plot of cosmic differences bteween pre and postRT samples 
+out_res_cos2<-NULL
+for(ss in 1:length(samples)){
+
+   fit_contribution_focal<-fit_contribution[,c(samples[ss],"cosmic")]
+   colnames(fit_contribution_focal)<-c("contribution","cosmic")
+   fit_contribution_focal_order<-fit_contribution_focal[order(fit_contribution_focal$contribution,decreasing = TRUE),]   
+   fit_contribution_focal_order<-fit_contribution_focal_order[fit_contribution_focal_order$contribution>=0,]
+   #fit_contribution_focal_order<-fit_contribution_focal_order[1:5,]
+   fit_contribution_focal_order$sample_id<-rep(samples[ss])
+   out_res_cos2<-rbind(out_res_cos2,fit_contribution_focal_order)
+}
+
+rownames(out_res_cos2)<-NULL
+out_res_cos2<-out_res_cos2[out_res_cos2$sample_id!="cosmic",]
+out_res_cos2$contribution<-as.integer(out_res_cos2$contribution)
+
+out_res_cos2_pre_post<-out_res_cos2[grepl("pre",out_res_cos2$sample_id)|grepl("post",out_res_cos2$sample_id),]
+out_res_cos2_pre_post$RT_status<-gsub(".*_","",out_res_cos2_pre_post$sample_id)
+
+sbs1<-out_res_cos2_pre_post[out_res_cos2_pre_post$cosmic=="SBS1",]
+sbs13<-out_res_cos2_pre_post[out_res_cos2_pre_post$cosmic=="SBS13",]
+sbs2<-out_res_cos2_pre_post[out_res_cos2_pre_post$cosmic=="SBS2",]
+sbs3<-out_res_cos2_pre_post[out_res_cos2_pre_post$cosmic=="SBS3",]
+sbs5<-out_res_cos2_pre_post[out_res_cos2_pre_post$cosmic=="SBS5",]
+sbs8<-out_res_cos2_pre_post[out_res_cos2_pre_post$cosmic=="SBS8",]
+sbs7a<-out_res_cos2_pre_post[out_res_cos2_pre_post$cosmic=="SBS7a",]
+sbs15<-out_res_cos2_pre_post[out_res_cos2_pre_post$cosmic=="SBS15",]
+
+cosmic1<-ggplot(sbs1, aes(x=RT_status, y=contribution, fill = RT_status)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=1) +
+                labs(title="refitted cosmic SBS1")
+                cosmic1_stat<-cosmic1 + stat_compare_means()
+
+
+cosmic2<-ggplot(sbs2, aes(x=RT_status, y=contribution, fill = RT_status)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=1) +
+                labs(title="refitted cosmic SBS2")
+                cosmic2_stat<-cosmic2 + stat_compare_means()
+
+cosmic3<-ggplot(sbs3, aes(x=RT_status, y=contribution, fill = RT_status)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=1) +
+                labs(title="refitted cosmic SBS3")
+                cosmic3_stat<-cosmic3 + stat_compare_means()                
+
+
+cosmic5<-ggplot(sbs5, aes(x=RT_status, y=contribution, fill = RT_status)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=1) +
+                labs(title="refitted cosmic SBS5")
+                cosmic5_stat<-cosmic5 + stat_compare_means()       
+
+
+cosmic8<-ggplot(sbs8, aes(x=RT_status, y=contribution, fill = RT_status)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=1) +
+                labs(title="refitted cosmic SBS8")
+                cosmic8_stat<-cosmic8 + stat_compare_means()     
+
+
+cosmic13<-ggplot(sbs13, aes(x=RT_status, y=contribution, fill = RT_status)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=1) +
+                labs(title="refitted cosmic SBS13")
+                cosmic13_stat<-cosmic13 + stat_compare_means()   
+
+
+pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/boxplot_cosmic_contribution_between_pre_post_compsrison_Jan2023.pdf", width = 8, height = 12)
+plot_cosmics<-grid.arrange(cosmic1_stat,cosmic2_stat,cosmic3_stat,cosmic5_stat,cosmic8_stat,cosmic13_stat,ncol=2)
+print(plot_cosmics)
+dev.off()
 
 
 
+
+##############################
+## Stricter refitting
 ### Bootstrapped refitting.
 
 contri_boots <- fit_to_signatures_bootstrapped(mut_mat[, c(3, 7)],
