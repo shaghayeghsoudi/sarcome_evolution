@@ -243,7 +243,7 @@ all_final<-all_selected[,c(1,2,3,4,7,5)]
 all_final$seqnames<-gsub("chr","",all_final$seqnames)
 
 all_final_nodup<-all_final[!duplicated(all_final),]
-write.table(all_final_nodup, file = "out_res_all_chroms_all_samples.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
+write.table(all_final_nodup, file = "out_res_all_chroms_merged_regions_per_patient_for_GISTIC.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
 
    
 
