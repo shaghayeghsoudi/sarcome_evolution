@@ -126,8 +126,8 @@ for(ss in 1:length(patients_rt)){  ### loop through each patient
 
 }     ### ss loop (patientRT)
 
-write.table(out_res_all, file = "out_res_all_merged.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
-out_res_all<-read.delim(file = "out_res_all_merged.txt", header = TRUE)
+write.table(out_res_all, file = "out_res_all_merged_regions_per_patient.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
+out_res_all<-read.delim(file = "out_res_all_merged_regions_per_patient.txt", header = TRUE)
 
 ################################################
 ### identical function (when number of gain and loss segments are equal)
