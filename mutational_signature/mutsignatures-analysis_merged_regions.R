@@ -1,6 +1,11 @@
-## muttaional signature analysis for merged regions
+#rm(list = ls())
 
-rm(list = ls())
+## Title: Mutational signature analysis with mutSignature package in R (merged regions per patient)
+# Original Author:  Shaghayegh Soudi
+# Contributors:    NA 
+# Date: November 2022
+# Updated: February 2023
+## for vignette see: # https://cran.r-project.org/web/packages/mutSignatures/vignettes/get_sarted_with_mutSignatures.html
 
 
 library(dplyr)
@@ -38,22 +43,16 @@ shared_clonal_mutations_fix$Chromosome<-gsub("chr","",shared_clonal_mutations_fi
 shared_clonal_mutations_fix$pos_id<-paste(shared_clonal_mutations_fix$Chromosome,shared_clonal_mutations_fix$Start, sep = "_")
 
 ## all samples
-meta<-read.table(file = "metadata_updated.txt", header = FALSE, sep= "\t")[,c(1:4,6)]
-colnames(meta)<-c("sample_id", "purity","ploidy","RT_status","RT_code")
-meta$unique_sample_id<-gsub("_.*$","",meta$sample_id)
+meta<-read.delim(file = "metadata_updated_shaghayegh_Feb2023_based_on_new_solutions.txt", header = TRUE)
+meta$unique_sample_id<-gsub("_.*$","",meta$sampleid)
 
-
-
-mutaion_RT<-merge(shared_clonal_mutations_fix,meta, by.x = "sample_id", by.y = "sample_id")
+mutaion_RT<-merge(shared_clonal_mutations_fix,meta, by.x = "sample_id", by.y = "sampleid")
 mutaion_RT<-mutaion_RT[mutaion_RT$Start!="777428",]
 
 
-mutaion_RT$RT_status<-gsub("noRT-1","noRT",mutaion_RT$RT_status)
-mutaion_RT$RT_status<-gsub("noRT-2","noRT",mutaion_RT$RT_status)
-
-mutaion_RT$RTtretment<-ifelse(mutaion_RT$RT_status== "preRT", "naive",
-                        ifelse(mutaion_RT$RT_status== "noRT", "naive",
-                        ifelse(mutaion_RT$RT_status== "postRT", "treatment",
+mutaion_RT$RTtretment<-ifelse(mutaion_RT$sequenceofsamplevRT== "beforeRT", "naive",
+                        ifelse(mutaion_RT$sequenceofsamplevRT== "nopreopRT", "naive",
+                        ifelse(mutaion_RT$sequenceofsamplevRT== "afterRT", "RTtreatment",
                         "-")))
 
 mutaion_RT<-mutaion_RT[mutaion_RT$Chromosome!="Start",]
@@ -63,7 +62,7 @@ mutaion_RT<-mutaion_RT[mutaion_RT$Chromosome!="Start",]
 #colnames(mutaion_RT)<-c("sampleID","chr","pos","ref","mut","RT_code","Gene","Impact","RTtretment","RT_staus_code")
 
 mutaion_RT$pos_id<-paste(mutaion_RT$Chromosome,mutaion_RT$Start, sep = "_")
-mutaion_RT$identifier<-paste(mutaion_RT$unique_sample_id,mutaion_RT$RT_status, sep = "_")
+mutaion_RT$identifier<-paste(mutaion_RT$unique_sample_id,mutaion_RT$RTtretment, sep = "_")
 
 
 samples<-unique(mutaion_RT$identifier)
@@ -81,11 +80,11 @@ colnames(out_res_good)<-c("CHROM","POS","REF","ALT","SAMPLEID")
 out_res_good$CHROM<-paste("chr",out_res_good$CHROM,sep = "")
 
 ## write input file for mutsignatures ###
-write.table(out_res_good, file = "outres_input_mutsignatures_merged_regions_all_samples_tab.table", sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
+write.table(out_res_good, file = "MutSignatures/Feb_2023/outres_input_mutsignatures_merged_regions_all_samples_from_updated_solution_metadata_Feb2023_tab.table", sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
 
 
 
-input_sigmutation<-read.table(file = "MutSignatures/outres_input_mutsignatures_merged_regions_all_samples_tab.table", header = TRUE)
+input_sigmutation<-read.table(file = "MutSignatures/Feb_2023/outres_input_mutsignatures_merged_regions_all_samples_from_updated_solution_metadata_Feb2023_tab.table", header = TRUE)
 ### filter out any muttaion that is not a SNV
 
 muts<-c("A","T","C","G")
@@ -100,7 +99,7 @@ input_sigmutation_snv<-input_sigmutation_snv[input_sigmutation_snv$ALT%in%muts,]
 #### extrcat preRT samples
 #y_pre<-input_sigmutation_snv[grepl("noRT",input_sigmutation_snv$SAMPLEID),]
 y_pre<-input_sigmutation_snv
-#De novo extraction of Mutational Signatures from BLCA samples
+#De novo extraction of Mutational Signatures 
 # Attach context
 y_pre <- attachContext(mutData = y_pre,
                    chr_colName = "CHROM",

@@ -1,4 +1,4 @@
-rm(list = ls())
+#rm(list = ls())
 
 ## Title: Mutational signature analysis with mutSignature package in R
 # Original Author:  Shaghayegh Soudi
