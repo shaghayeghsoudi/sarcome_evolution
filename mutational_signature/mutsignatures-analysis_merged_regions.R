@@ -15,6 +15,7 @@ library(ggplot2)
 library(gridExtra)
 library(BSgenome.Hsapiens.UCSC.hg19)
 library(tidyverse)
+library(pheatmap)
 
 # Load mutSignatures
 library(mutSignatures)
@@ -123,7 +124,7 @@ y_pre <- attachMutType(mutData = y_pre,                      # as above
 
 
 
-write.table(y_pre, file = "MutSignatures/outres_compute_mutType_MutSignatures_all_samples_merged_regions.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
+write.table(y_pre, file = "MutSignatures/Feb_2023/outres_compute_mutType_MutSignatures_all_samples_merged_regions.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
 
 ######################################################
 ### look at corrections with particular muttaion type
@@ -174,7 +175,7 @@ xx <- as.mutation.counts(x)
 
 mouCancer.assess <- prelimProcessAssess(input = xx, approach = "counts")
 
-num.sign <- 4
+num.sign <- 3
 
 # Define parameters for the non-negative matrix factorization procedure.
 # you should parallelize if possible
@@ -191,7 +192,6 @@ pre.analysis <-
                               params = pre.params)
 
 
-
 #Downstream analyses and visualization
 ## examine the results
 # Retrieve signatures (results)
@@ -200,20 +200,142 @@ pre.sig <- pre.analysis$Results$signatures
 # Retrieve exposures (results)
 pre.exp <- pre.analysis$Results$exposures
 
+
 # Plot signature 1 (standard barplot, you can pass extra args such as ylim)
-msigPlot(pre.sig, signature = 1, ylim = c(0, 0.10))
-msigPlot(pre.sig, signature = 2, ylim = c(0, 0.10))
-msigPlot(pre.sig, signature = 3, ylim = c(0, 0.10))
-msigPlot(pre.sig, signature = 4, ylim = c(0, 0.10))
+for (pp in 1:length(num.sign)){
+
+  png(file = paste("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/denovo_MutSignature_sign_",pp,"_PreRT_merged_regions_boot500_cgDNA.png"))
+  msigPlot(pre.sig, signature = pp, ylim = c(0, 0.10))
+  dev.off()
+}
 
 
-
+png(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/barplot_denovo_MutSignature_counts_per_sample_all_samples_merged_regions_boot500.png")
 msigPlot(pre.exp) + 
   scale_fill_manual(values = c("#1f78b4", "#cab2d6", "#ff7f00", "#a6cee3"))
-xprt <- coerceObj(x = pre.exp, to = "data.frame") 
-#xprt <- coerceObj(x = pre.exp, to = "data.frame") 
+dev.off()
 
-write.table(xprt, file = "MutSignatures/out_put_mutsignatures_xprt_denove_signature_count_All_RT.txt")
+write.table(xprt, file = "MutSignatures/Feb_2023/out_put_mutsignatures_xprt_denove_3_signature_count_All_RT.txt")
+
+
+########################################################
+##### costom visualization of denovo exposures #########
+denovo_exp<-data.frame(t(xprt))
+
+our_res_exp<-NULL
+for (jj in 1:ncol(denovo_exp)){
+
+    denovo_exp_focal<-data.frame(denovo_exp[,jj])
+    denovo_exp_focal$sample_id<-rownames(denovo_exp)
+    denovo_exp_focal$sig<-rep(colnames(denovo_exp)[jj])
+    colnames(denovo_exp_focal)<-c("count","sample_id","sig")
+    our_res_exp<-rbind(denovo_exp_focal,our_res_exp)
+}
+
+png("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/barplot_cexp_counts_all_samples_sample_annotated.png", width = 500, height = 500)
+plota<-ggplot(our_res_exp, aes(x = sample_id, y= count,fill = sig)) + 
+   geom_bar(stat = "identity")+
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+print(plota)
+dev.off()   
+
+
+#### heatmap of denovo exposure frequencies ####
+freq<-data.frame(table(y_pre$SAMPLEID))
+#freq<-freq%>%separate(Var1,c("uniq_sample_id","RT"))
+
+samples<-colnames(xprt)
+
+out_res_xprt<-NULL
+for(k in 1:length(samples)){
+
+    xprt_focal<-xprt[,colnames(xprt)==samples[k]]
+    focal_count<-freq[freq$Var1==samples[k],]
+    table_count<-data.frame("freq"=xprt_focal/focal_count$Freq)
+    colnames(table_count)<-samples[k]
+
+    table<-t(table_count)
+    #rownames(table)<-c("Sign.01","Sign.02","Sign.03","Sign.04")
+    out_res_xprt<-rbind(table,out_res_xprt)
+
+}
+
+out_res_final_xprt<-t(out_res_xprt)
+rownames(out_res_final_xprt)<-c("Sign.01","Sign.02","Sign.03","Sign.04")
+out_res_final_xprt_df<-data.frame(out_res_final_xprt)
+
+png("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/heatmap_denovo_frequencies_all_samples_annotated_clustered.png", width = 700, height = 700)
+pheatmap(out_res_final_xprt_df,cluster_rows =FALSE)
+dev.off()
+
+### make ordered heatmap ###
+#ordered<-c("SRC125_preRT","SRC127_preRT","SRC167_preRT","SRC169_preRT","SRC170_preRT","SRC171_preRT","TB9051_preRT","SRC125_postRT","SRC127_postRT","SRC167_postRT","SRC169_postRT","SRC170_postRT","SRC171_postRT","TB22446_postRT","TB9051_postRT","RC130_noRT","SRC168_noRT" ,"SRC172_noRT","SRC173_noRT", "TB13092_noRT","TB13712_noRT","TB13959_noRT","TB9573_noRT")
+#out_res_final_xprt_ordered<-out_res_final_xprt_df[order(match(colnames(out_res_final_xprt_df), ordered))]
+
+#pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/cfDNA/heatmap_denovo_frequencies_cfDNA_sample_annotated_ordered_Unclustered.pdf", width = 5, height = 5)
+#pheatmap(out_res_final_xprt_ordered,cluster_cols=FALSE)
+#dev.off()
+
+sig1_deno<-data.frame("proportion"=out_res_final_xprt[1,])
+sig1_deno$sample_id<-rownames(sig1_deno)
+sig1_deno<-sig1_deno%>%separate(sample_id,c("uniq_sample_id","RT"))
+
+
+sig2_deno<-data.frame("proportion"=out_res_final_xprt[2,])
+sig2_deno$sample_id<-rownames(sig2_deno)
+sig2_deno<-sig2_deno%>%separate(sample_id,c("uniq_sample_id","RT"))
+
+
+sig3_deno<-data.frame("proportion"=out_res_final_xprt[3,])
+sig3_deno$sample_id<-rownames(sig3_deno)
+sig3_deno<-sig3_deno%>%separate(sample_id,c("uniq_sample_id","RT"))
+
+
+sig4_deno<-data.frame("proportion"=out_res_final_xprt[4,])
+sig4_deno$sample_id<-rownames(sig4_deno)
+sig4_deno<-sig4_deno%>%separate(sample_id,c("uniq_sample_id","RT"))
+
+### box plots of difference betwen groups in each signature ###
+
+plot_sig1<-ggplot(sig1_deno, aes(x=RT, y=proportion, fill = RT)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=4) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=1) +
+                labs(title="denovo_exposure_sign01")
+
+
+plot_sig2<-ggplot(sig2_deno, aes(x=RT, y=proportion, fill = RT)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=4) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=1)+
+                labs(title="denovo_exposure_sign02")
+
+
+plot_sig3<-ggplot(sig3_deno, aes(x=RT, y=proportion, fill = RT)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=4) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=1)+
+                labs(title="denovo_exposure_sign03")
+
+
+plot_sig4<-ggplot(sig4_deno, aes(x=RT, y=proportion, fill = RT)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=4) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=1)+
+                labs(title="denovo_exposure_sign04")
+
+
+library("gridExtra")
+
+grid.arrange(arrangeGrob(plot_sig1, plot_sig2, ncol = 2),                             # First row with one plot spaning over 2 columns
+             arrangeGrob(plot_sig3, plot_sig4, ncol = 2), # Second row with 2 plots in 2 different columns
+             nrow = 2)      
+
+
+
+
+
+
 
 
 # Retrieve COSMIC signatures from online repo, and then subset
@@ -234,12 +356,12 @@ blca.expo2 <- resolveMutSignatures(mutCountData = xx,
 
 blca.exp.1x <- blca.expo1$Results$count.result
 blca.exp.1x_df <- coerceObj(x = blca.exp.1x, to = "data.frame") 
-write.table(blca.exp.1x_df, file = "MutSignatures/out_put_mutsignatures_blca.exp.1x_cosmic_signature_count_All_RT.txt")
+write.table(blca.exp.1x_df, file = "MutSignatures/Feb_2023/out_put_mutsignatures_blca.exp.1x_cosmic_signature_count_All_RT.txt")
 
 
 blca.exp.2x <- blca.expo2$Results$count.result
 blca.exp.2x_df <- coerceObj(x = blca.exp.2x, to = "data.frame") 
-write.table(blca.exp.2x_df, file = "MutSignatures/out_put_mutsignatures_blca.exp.2x_denove_signature_count_All_RT.txt")
+write.table(blca.exp.2x_df, file = "MutSignatures/Feb_2023/out_put_mutsignatures_blca.exp.2x_denove_signature_count_All_RT.txt")
 
 
 # Plot exposures
