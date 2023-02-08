@@ -1,5 +1,5 @@
 
-# Title: 
+# Title: marge CNV segments for each subject ID 
 # Original Author:  Shaghayegh Soudi
 # Contributors:    NA 
 # Date: January 2023
@@ -10,16 +10,21 @@
 library(data.table)
 library(VariantAnnotation)
 
-## load metadata and TITAN output segment files 
-meta<-read.table(file = "/scratch/users/shsoudi/metadata/metadata.txt", header = FALSE)
-seg_files<-list.files("00-inputs-segs", pattern = "*.segs.txt", full.names = TRUE)
+## load metadata and make patient with uniq RT status
+meta<-read.table(file = "/scratch/users/shsoudi/metadata/WES_updated_metadat_02022023.txt", header = TRUE)
+meta$RT_status[meta$sequenceofsamplevRT=="beforeRT"]<-"noRT"
+meta$RT_status[meta$sequenceofsamplevRT=="nopreopRT"]<-"noRT"
+meta$RT_status[meta$sequenceofsamplevRT=="afterRT"]<-"afterRT"
+
+## load TITAN's seg files and chneg to the right format
+seg_files<-list.files("00-inputs-segs", pattern = "*.titan.ichor.segfull.txt", full.names = TRUE)
 
 attackTitan1 <- function(x) {
       data<-read.delim(x,  header=TRUE, sep = "\t")
       data$sample_id<-gsub("-.*$","",data$Sample)
-      data<-merge(data,meta, by.x = "sample_id", by.y = "V1")
+      data<-merge(data,meta, by.x = "sample_id", by.y = "sampleid")
       data$uniq_id<-gsub("_.*$","",data$sample_id)
-      data$uniq_id2<-paste(data$uniq_id,data$V5, sep = "_")
+      data$uniq_id2<-paste(data$uniq_id,data$RT_status, sep = "_")
       #data$major_minor_copy<-paste(data$MajorCN,data$MinorCN, sep = "-")
       return(data)
     }
@@ -67,6 +72,7 @@ for(ii in 1:length (samples_vcf)){
 }
 
 #### run main part to merge segments for each subect ID
+titan_segs<-titan_segs[titan_segs$Corrected_Call !="Fill_In",]
 titan_segs$type[titan_segs$Corrected_Call=="NEUT"]<-"neutral"
 titan_segs$type[titan_segs$Corrected_Call== "AMP"| titan_segs$Corrected_Call== "GAIN" | titan_segs$Corrected_Call== "HLAMP"]<-"gain"
 titan_segs$type[titan_segs$Corrected_Call== "HETD"| titan_segs$Corrected_Call== "HOMD"]<-"loss"
@@ -87,20 +93,21 @@ for(ss in 1:length(patients_rt)){  ### loop through each patient
     sample_vcf<-gsub("_.*$","",patients_rt[ss])
     focal_vcf<-read.table(file = paste ("02-inputs-positions/positions_",sample_vcf,".txt", sep = ""), header = TRUE)
 
-        #out_res_all<-NULL
+        out_res_tt<-NULL
         for(tt in 1:length(seg_type)){  ### for each patient loop through each CNV type and merge overlapping segments
 
             focal_segtype<-focal_patient[focal_patient$type==seg_type[tt],]
-            focal_segtype_gr<-GRanges(IRanges(start = focal_segtype$Start_Position.bp.,end =  focal_segtype$End_Position),seqnames = focal_segtype$Chromosome)
+            focal_segtype_gr<-GRanges(IRanges(start = focal_segtype$Start,end =  focal_segtype$End),seqnames = focal_segtype$Chromosome)
             focal_merged<-data.frame(reduce(focal_segtype_gr))[,c(1:4)]
 
+                out_res_gg<-NULL
                 for(gg in 1:nrow(focal_merged)){  ### loop through each merged region
 
                 focal_CNVstate<-focal_merged[gg,]
                 ## find rows within the range of focal merged in the patient seg file with similar type
-                rows <- focal_segtype$Chromosome == focal_CNVstate$seqnames & focal_segtype$Start_Position.bp. >= focal_CNVstate$start & focal_segtype$End_Position.bp. <= focal_CNVstate$end
+                rows <- focal_segtype$Chromosome == focal_CNVstate$seqnames & focal_segtype$Start >= focal_CNVstate$start & focal_segtype$End <= focal_CNVstate$end
                 data_range<- focal_segtype[rows, ]
-                data_range$seg_length<-abs(data_range$Start_Position.bp. - data_range$End_Position.bp.)
+                data_range$seg_length<-abs(data_range$Start- data_range$End)
                 data_range_max<-data_range[which.max(data_range$seg_length),]
 
                 ### find accurate number of markers for the merged regions from vcf file
@@ -109,9 +116,9 @@ for(ss in 1:length(patients_rt)){  ### loop through each patient
                 snps<-unique(vcfs_focal_merged_inrange$uniq_posID)
 
                 #focal_CNVstate$snp_length_mean <-round(mean(data_range$Length.snp.))
-                focal_CNVstate$copy_number_mean <-round(mean(data_range$Corrected_Copy_Number))
-                focal_CNVstate$corrected_ratio <-(mean(data_range$Corrected_Ratio))
-                focal_CNVstate$copy_number_median <-median(data_range$Corrected_Copy_Number)
+                focal_CNVstate$copy_number_mean <-round(mean(as.numeric(data_range$Corrected_Copy_Number)))
+                focal_CNVstate$corrected_ratio <-(mean(as.numeric(data_range$Corrected_Ratio)))
+                focal_CNVstate$copy_number_median <-median(as.numeric(data_range$Corrected_Copy_Number))
                 focal_CNVstate$sample_id<-unique(focal_patient$uniq_id2)
                 focal_CNVstate$longest_segment<-data_range_max$seg_length
                 focal_CNVstate$samples_with_fsegment<-length(unique(data_range$sample_id))
@@ -119,15 +126,18 @@ for(ss in 1:length(patients_rt)){  ### loop through each patient
                 focal_CNVstate$SNPs_length<-length(snps)
                 focal_CNVstate$samples_with_fsegmentID<-paste("'",unique(data_range$sample_id),"'",collapse=", ",sep="")
 
-                out_res_all<-rbind(focal_CNVstate,out_res_all)  #### final table for gain
-        } ## merged row
+                out_res_gg<-rbind(focal_CNVstate,out_res_gg)  #### final table for gain
 
-    } ## segment type
+        } ## merged row (gg loop)
 
-}     ### ss loop (patientRT)
+            out_res_tt<-rbind(out_res_gg,out_res_tt)
+    } ## segment type (tt loop)
 
-write.table(out_res_all, file = "out_res_all_merged_regions_per_patient.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
-out_res_all<-read.delim(file = "out_res_all_merged_regions_per_patient.txt", header = TRUE)
+    out_res_all<-rbind(out_res_tt,out_res_all)        
+}     ### each patientRT (ss loop)
+
+write.table(out_res_all, file = "out_res_all_merged_regions_per_patient_02052023.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
+out_res_all<-read.delim(file = "out_res_all_merged_regions_per_patient_02052023.txt", header = TRUE)
 
 ################################################
 ### identical function (when number of gain and loss segments are equal)
@@ -142,11 +152,10 @@ ident <- function(...){
     return( all( out ) )
 }
 
-
 out_res_patient_s<-unique(out_res_all$sample_id)
 out_res_patient<-NULL
 
-for(pp in 1:length(out_res_patient)){
+for(pp in 1:length(out_res_patient_s)){
 
   focal_outres_patient<-out_res_all[out_res_all$sample_id==out_res_patient_s[pp],]
   chroms<-unique(focal_outres_patient$seqnames)
@@ -180,12 +189,12 @@ for(pp in 1:length(out_res_patient)){
       for(kk in 1:nrow(focal_merged2)){   ### loop through each gain/loss 
 
         focal_xx<-focal_merged2[kk,]
-
         if (count_overlaps[kk] >=1 & nrow(focal_merged2)>= 1| count_overlaps[kk] ==0 & nrow(focal_merged2)>= 1) {
 
-        qq_overlapped<-focal_chrom_neutraldroped[focal_chrom_neutraldroped$start >=  focal_xx$start & focal_chrom_neutraldroped$end <= focal_xx$end,]
-
-          if (nrow(qq_overlapped)> 1 & (ident(qq_overlapped$samples_with_fsegment)==TRUE)) {
+            qq_overlapped<-focal_chrom_neutraldroped[focal_chrom_neutraldroped$start >=  focal_xx$start & focal_chrom_neutraldroped$end <= focal_xx$end,]
+            qq_overlapped<-data.frame(setDT(qq_overlapped)[, .SD[which.max(samples_with_fsegment)], by=CNV_state])
+            
+            if (nrow(qq_overlapped)> 1 & (ident(qq_overlapped$samples_with_fsegment)==TRUE)) {
 
                qq_overlapped_good<-qq_overlapped[which.max(qq_overlapped$corrected_ratio),]  
             } 
@@ -194,9 +203,7 @@ for(pp in 1:length(out_res_patient)){
 
                qq_overlapped_good<-qq_overlapped[which.max(qq_overlapped$samples_with_fsegment),]  
             }  
-
              if (nrow(qq_overlapped) == 1){
-
                qq_overlapped_good<-qq_overlapped
             } 
 
@@ -222,11 +229,17 @@ for(pp in 1:length(out_res_patient)){
         out_res_neutral<-rbind(beck_neutral_focal,out_res_neutral)
         }
 
+              gl_neutral<-rbind(out_res_gl,out_res_neutral)
+
+
+      } else {
+       gl_neutral<-out_res_gl
+
       }
     #out_res_chrom<-rbind(gl_neutral,out_res_chrom)
 
     #}  ## if count_overlaps_neutral ==0
-      gl_neutral<-rbind(out_res_gl,out_res_neutral)
+      #gl_neutral<-rbind(out_res_gl,out_res_neutral)
       out_res_chrom<-rbind(gl_neutral,out_res_chrom)
       out_res_chrom<-na.omit(out_res_chrom)
       out_res_chrom_good<-out_res_chrom[!duplicated(out_res_chrom),]
@@ -237,6 +250,52 @@ for(pp in 1:length(out_res_patient)){
 
 }  ## patient loop
 
+
+all_selected<-out_res_patient[,c("sample_id","seqnames" , "start" , "end","SNPs_length","copy_number_median")]
+all_selected$Seg.CN<- (log2(all_selected$copy_number_median) -1 )
+all_final<-all_selected[,c(1,2,3,4,5,7)]
+all_final$seqnames<-gsub("chr","",all_final$seqnames)
+
+all_final_nodup<-all_final[!duplicated(all_final),]
+
+
+samples<-unique(all_final_nodup$sample_id)
+out_res<-NULL
+for(ii in 1:length(samples)){
+    focal<-all_final_nodup[all_final_nodup$sample_id==samples[ii],]
+    chrOrder <-c(1:22,"X")
+
+    focal$seqnames <- factor(focal$seqnames, chrOrder, ordered=TRUE)
+    focal<-focal[do.call(order, focal[, c("sample_id","seqnames","start")]), ]
+    out_res<-rbind(focal,out_res)
+}
+out_res$seqnames<-paste("chr",out_res$seqnames, sep = "")
+write.table(out_res, file = "out_res_patient_GISTIC_merged_unfilled_gaps_formatted_05022023.txt", col.names = FALSE, row.names = FALSE,sep = "\t", quote = FALSE)
+
+out_res$no_count<-NA
+out_res_with_na<-out_res[,c("sample_id","seqnames","start","end","no_count","Seg.CN")]
+write.table(out_res_with_na, file = "out_res_patient_GISTIC_merged_unfilled_gaps_formatted_no_count_05022023.txt", col.names = FALSE, row.names = FALSE,sep = "\t", quote = FALSE)
+
+################
+################
+################
+
+
+
+
+################
+aa<-out_res_patient[out_res_patient$sample_id=="SRC125_preRT",]
+aa_bed<-aa[,c("seqnames" , "start","end")]
+
+#chroms<-c("chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr21","chr22","chrX")
+#aa_bed_ordered<-aa_bed[order(unlist(sapply(aa_bed$seqnames, function(x) which(chroms == x)))),] 
+bb.bed<-aa_bed[(aa_bed$end-aa_bed$start!=0),]
+
+cc.bed<-bedtoolsr::bt.sort(bb.bed)
+
+fai<-read.delim(file = "/oak/stanford/groups/emoding/sequencing/pipeline/indices/hg19.fa.fai", header = FALSE)
+bedtoolsr::bt.complement(cc.bed, fai)
+#############
 all_selected<-out_res_patient[,c("sample_id","seqnames" , "start" , "end","SNPs_length","copy_number_median")]
 all_selected$Seg.CN<- (log2(all_selected$copy_number_median) -1 )
 all_final<-all_selected[,c(1,2,3,4,7,5)]
@@ -247,4 +306,30 @@ write.table(all_final_nodup, file = "out_res_all_chroms_merged_regions_per_patie
 
    
 
+bedtoolsr::bt.complement(aa_bed, fai)
+
+
+###
+bt.complement            package:bedtoolsr             R Documentation
+
+Returns the base pair complement of a feature file.
+
+Description:
+
+     Returns the base pair complement of a feature file.
+
+Usage:
+
+     bt.complement(i, g, L = NULL, output = NULL)
+     
+Arguments:
+
+       i: <bed/gff/vcf>
+
+       g: <genome>
+
+       L: Limit output to solely the chromosomes with records in the
+          input file.
+
+  output: Output filepath instead of returning output in R.
 
