@@ -21,9 +21,9 @@ library(ref_genome, character.only = TRUE)
 
 setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs")
 
-meta<-read.table(file = "metadata_updated_shaghayegh_Jan2023.txt", header = FALSE, sep= "\t")[,c(1:4,6)]
-colnames(meta)<-c("sample_id", "purity","ploidy","RT_status","RT_code")
-meta$unique_sample_id<-gsub("_.*$","",meta$sample_id)
+meta<-read.delim(file = "metadata_updated_shaghayegh_Feb2023_based_on_new_solutions.txt", header = TRUE)
+meta$unique_sample_id<-gsub("_.*$","",meta$sampleid)
+
 
 #### make required vcf file format
 filenames_CN <- list.files("filtered_variants",pattern="*filtered.variants.oxomerge.final.txt", full.names = TRUE)
@@ -31,11 +31,9 @@ attackStats_CN <- lapply(filenames_CN,function(x) {
      read.delim(x, header=TRUE, sep = "\t")[,c("Chromosome","Start","Ref", "Alt","AF","TumorReads","TumorDepth")]
      })
 
-
 for (i in 1:length(attackStats_CN)){
     attackStats_CN[[i]]<-cbind(attackStats_CN[[i]],filenames_CN[i])
     }
-
 
 ### add sample name as a column
 shared_clonal_mutations_fix <- do.call("rbind", attackStats_CN) 
@@ -43,17 +41,15 @@ shared_clonal_mutations_fix$sample_id<-gsub("filtered_variants/", "",gsub(".filt
 shared_clonal_mutations_fix$pos_id<-paste(shared_clonal_mutations_fix$Chromosome,shared_clonal_mutations_fix$Start, sep = "_")
 shared_clonal_mutations_fix<-shared_clonal_mutations_fix[shared_clonal_mutations_fix$Start!="777428",]
 shared_clonal_mutations_fix$unique_sample_id<-gsub("_.*$","",shared_clonal_mutations_fix$sample_id)
-mutaion_RT<-merge(shared_clonal_mutations_fix,meta, by.x = "sample_id", by.y = "sample_id")
+mutaion_RT<-merge(shared_clonal_mutations_fix,meta, by.x = "sample_id", by.y = "sampleid")
 
-mutaion_RT$RT_status<-gsub("noRT-1","noRT",mutaion_RT$RT_status)
-mutaion_RT$RT_status<-gsub("noRT-2","noRT",mutaion_RT$RT_status)
 
-mutaion_RT$RTtretment<-ifelse(mutaion_RT$RT_status== "preRT", "naive",
-                        ifelse(mutaion_RT$RT_status== "noRT", "naive",
-                        ifelse(mutaion_RT$RT_status== "postRT", "irradiated",
+mutaion_RT$RTtretment<-ifelse(mutaion_RT$sequenceofsamplevRT== "beforeRT", "naive",
+                        ifelse(mutaion_RT$sequenceofsamplevRT== "nopreopRT", "naive",
+                        ifelse(mutaion_RT$sequenceofsamplevRT== "afterRT", "irradiated",
                         "-")))
 
-mutaion_RT$identifier<-paste(mutaion_RT$unique_sample_id.x,mutaion_RT$RT_status, sep = "_")
+mutaion_RT$identifier<-paste(mutaion_RT$unique_sample_id.x,mutaion_RT$RTtretment, sep = "_")
 samples<-unique(mutaion_RT$identifier)
 
 out_res<-NULL
@@ -102,7 +98,7 @@ for (ii in 1:length(samples)){
     write.table(focal_vcf, file = paste("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/filtered_variants/vcf_format_with_indels/",samples[ii],".filtered.variants.oxomerge.final.Jan2023.vcf", sep = ""),row.names= FALSE, col.names = TRUE, sep = "\t", quote = FALSE)
 }
 
-
+##fileformat=VCFv4.1
 #for (v in length(samples)){
 #prettyprint <- function() {
 #  cat('##fileformat=VCFv4.1',
@@ -119,6 +115,7 @@ for (ii in 1:length(samples)){
 
 
 ### example how vcf format should look like
+##fileformat=VCFv4.1
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	PD21928b
 #1	105605108	1:105605108_T/A	T	A	429.75	PASS	.	GT:AD:DP:GQ:PL	0/0:29,0:29:75:0,75,818
 #1	120042428	1:120042428_T/C	T	C	440.79	PASS	.	GT:AD:DP:GQ:PL	0/0:27,0:27:78:0,78,862
@@ -149,10 +146,10 @@ sar_grl <- read_vcfs_as_granges(vcf_files, sample_names, ref_genome, predefined_
 #plot the indel spectra
 #plot_indel_contexts(indel_counts, condensed = TRUE)
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/Mutation_spectrum_exome_indels_Jan2023.pdf", width = 10, height = 30)
-indels<-plot_main_indel_contexts(indel_counts)
-print(indels)
-dev.off()
+#pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/summary_all_WES_noindels_regions_added_Feb2023/Mutation_spectrum_exome_indels_Feb2023.pdf", width = 10, height = 30)
+#indels<-plot_main_indel_contexts(indel_counts)
+#print(indels)
+#dev.off()
 #Using other signature matrixes
 
 #####
@@ -169,7 +166,7 @@ type_context <- type_context(sar_grl[[1]], ref_genome)
 lapply(type_context, head, 12)
 
 type_occurrences <- mut_type_occurrences(sar_grl, ref_genome)
-write.table(type_occurrences, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/type_occurrences_muutaionpattern_exome_noindels_Jan2023.txt", col.names = TRUE, row.names = TRUE, sep = "\t",quote = FALSE)
+write.table(type_occurrences, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/type_occurrences_muutaionpattern_exome_noindels_Feb2023.txt", col.names = TRUE, row.names = TRUE, sep = "\t",quote = FALSE)
 
 
 ## customized plots
@@ -189,7 +186,7 @@ for (ii in 1:length(types)){
 out_res$RTstatus<-gsub("preRT","noRT",out_res$RTstatus)
 box_type<-ggplot(out_res, aes(x=type, y=count, fill=RTstatus)) + 
     geom_boxplot()
-ggsave(filename="~/Desktop/boxplot_nucleotide_types_per_radiation.jpg", plot=box_type, height = 5, width = 8)
+ggsave(filename="~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/summary_all_WES_noindels_regions_added_Feb2023/summary_all_WES_noindels_regions_added_Feb2023/boxplot_nucleotide_types_per_radiation.jpg", plot=box_type, height = 5, width = 8)
 
 
 ## 96 muttaional profile
@@ -198,22 +195,21 @@ head(mut_mat)
 plot_96_profile(mut_mat[, c(1: 7)])
 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/Mutation_spectrum_exome_96profile_noindel_Jan2023.pdf", width = 10, height = 30)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/summary_all_WES_noindels_regions_added_Feb2023/Mutation_spectrum_exome_96profile_noindel_Jan2023.pdf", width = 7, height = 15)
 plot_A<-plot_96_profile(mut_mat[, c(1:27)])
 print(plot_A)
 dev.off()
 
-
-#### mutational signature 
+#### De novo mutational signature extraction using NMF
 #### denovo signature
 # 1: NMF
 mut_mat <- mut_mat + 0.0001
 library("NMF")
-estimate <- nmf(mut_mat, rank = 2:5, method = "brunet", 
+estimate <- nmf(mut_mat, rank = 2:6, method = "brunet", 
                 nrun = 10, seed = 123456, .opt = "v-p")
 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/NMF_optimal_factorization_rank_exome_96profile_noindel_Jan2023.pdf", width = 5, height = 5)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/summary_all_WES_noindels_regions_added_Feb2023/NMF_optimal_factorization_rank_exome_96profile_noindel_Feb2023.pdf", width = 5, height = 5)
 estimate<-plot(estimate)
 plot(estimate)
 print(estimate)
@@ -221,14 +217,22 @@ dev.off()
 
 ### I chose three signature 
 ### the most common approach is to choose the smallest rank for which cophenetic correlation coefficient starts decreasing
-nmf_res <- extract_signatures(mut_mat, rank = 3, nrun = 10, single_core = TRUE)
+nmf_res <- extract_signatures(mut_mat, rank = 3, nrun = 20, single_core = TRUE)
 #rownames(nmf_res$contribution)<-c("SBS1-like","SBSA","SBSB")
 #colnames(nmf_res$signatures) <- c("SBS1-like","SBSA","SBSB")
 
 
+#It’s possible that some of the signatures extracted by NMF are very similar to signatures 
+#that are already known. Therefore, it might be useful to change the names of the NMF 
+#signatures to these already known signatures. This often makes it easier to interpret 
+#your results.
+signatures = get_known_signatures()
+nmf_res <- rename_nmf_signatures(nmf_res, signatures, cutoff = 0.85)
+#[1] "SBSA"      "SBS1-like" "SBSB" 
+
 nmf_res_contribution<-data.frame(nmf_res$contribution)
-rownames(nmf_res_contribution)<-c("SBS1-like","SBSA","SBSB")
-write.table(nmf_res_contribution, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/out_res_nmf_res_contribution_exome_96profile_noindel_Jan2023.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
+#rownames(nmf_res_contribution)<-c("SBS1-like","SBSA","SBSB")
+write.table(nmf_res_contribution, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/out_res_nmf_res_contribution_exome_96profile_noindel_Feb2023.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
 
 
 out_res_nmf<-NULL
@@ -242,17 +246,25 @@ for (jj in 1:ncol(nmf_res_contribution)){
   out_res_nmf<-rbind( nmf_focal,out_res_nmf)
 
 }
+write.table(out_res_nmf, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/out_res_normalized_nmf_res_contribution_exome_96profile_noindel_Feb2023.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
+
+
+png(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/summary_all_WES_noindels_regions_added_Feb2023/96profile_noindel_Feb2023.png", width = 700, height = 700)
+plot_96profile<-plot_96_profile(nmf_res$signatures, condensed = TRUE)
+print(plot_96profile)
+dev.off()
+
 
 ## make bar plot of relative contribution of each signature
 out_res_nmf$RTstatus<-gsub(".*_","",out_res_nmf$patient_ID)
 denovo_contribution<-ggplot(out_res_nmf, aes(fill=signature , y=relative_contribution, x=patient_ID)) + 
     geom_bar(position="fill", stat="identity")
      denovo_contribution + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
-ggsave(filename="~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/barplot_mutpatterns_relative contribution_denovo_SNVs.jpg", height = 5, width = 5)
+ggsave(filename="~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/summary_all_WES_noindels_regions_added_Feb2023/barplot_mutpatterns_relative_contribution_NMF_denovo_SNVs.png", height = 500, width = 500)
 
 
 ##### compare if there is any difference between signatures among different pre,post and noRT samples ###
-out_res_nmf$RTstatus<-gsub("preRT","noRT",out_res_nmf$RTstatus)
+#out_res_nmf$RTstatus<-gsub("preRT","noRT",out_res_nmf$RTstatus)
 SBS1.like<-out_res_nmf[out_res_nmf$signature=="SBS1-like",]
 SBSA<-out_res_nmf[out_res_nmf$signature=="SBSA",]
 SBSB<-out_res_nmf[out_res_nmf$signature=="SBSB",]
@@ -260,15 +272,18 @@ SBSB<-out_res_nmf[out_res_nmf$signature=="SBSB",]
 
 
 ### box plots of difference betwen groups in each signature ###
-res <- wilcox.test(relative_contribution~ RTstatus,
-                   data = SBS1.like,
-                   exact = FALSE)
+#res <- wilcox.test(relative_contribution~ RTstatus,
+#                   data = SBS1.like,
+#                   exact = FALSE)
+
 plot_sig1<-ggplot(SBS1.like, aes(x=RTstatus, y=relative_contribution, fill = RTstatus)) + 
   geom_boxplot(outlier.colour="black",
                 outlier.size=0.7) +
                 geom_dotplot(binaxis='y', stackdir='center', dotsize=0.7) +
                 labs(title="SBS1.like") 
                 F1<-plot_sig1 + stat_compare_means()
+                #F1 <- plot_sig1 + stat_compare_means(method = "t.test")
+
 
 
 plot_sig2<-ggplot(SBSA, aes(x=RTstatus, y=relative_contribution, fill = RTstatus)) + 
@@ -287,8 +302,20 @@ plot_sig3<-ggplot(SBSB, aes(x=RTstatus, y=relative_contribution, fill = RTstatus
                 F3<-plot_sig3 + stat_compare_means()
 
 
+### check normality
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/summary_all_WES_noindels_regions_added_Feb2023/histogram_denovo_relative_contribution.pdf", width = 7, height = 5)
+par(mfrow=c(1,3)) 
+hist(SBS1.like$relative_contribution, breaks = 10, main = "SBS1.lik")
+hist(SBSA$relative_contribution, breaks = 10, main = "SBSA")
+hist(SBSB$relative_contribution, breaks = 10, main = "SBSB")
+dev.off()
+shapiro.test(SBSB$relative_contribution)
+
+
+
+
 library("gridExtra")
-pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/boxplot_relative_contribution_customized_WED_SNVs_Jan2023.pdf", width = 4, height = 9)
+png("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/summary_all_WES_noindels_regions_added_Feb2023/boxplot_relative_contribution_customized_WED_SNVs_Feb2023.png", width = 700, height = 1000, res = 150)
 plot_all_box<-grid.arrange(F1,F2,F3, nrow= 3)
 print(plot_all_box)
 dev.off()
@@ -322,7 +349,6 @@ dev.off()
 
 ### plot the heatmap
 
-
 hclust_signatures <- cluster_signatures(nmf_res$signatures, method = "average")
 signatures_order <- colnames(nmf_res$signatures)[hclust_signatures$order]
 signatures_order
@@ -333,10 +359,10 @@ samples_order <- colnames(mut_mat)[hclust_samples$order]
 samples_order
 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/heatmap_contribution_noindel_NMF_exome_clustered.pdf", width = 7, height = 5)
+pdf(file = "~Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/summary_all_WES_noindels_regions_added_Feb2023/heatmap_contribution_noindel_NMF_exome_unclustered.pdf", width = 7, height = 5)
 heatmap_contribution<-plot_contribution_heatmap(nmf_res$contribution,
   sig_order = signatures_order, sample_order = samples_order,
-  cluster_sigs = TRUE, cluster_samples = TRUE
+  cluster_sigs = FALSE, cluster_samples = FALSE
 )
 print(heatmap_contribution)
 dev.off()
