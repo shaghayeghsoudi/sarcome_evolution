@@ -4,12 +4,12 @@ rm(list = ls())
 #library(fishplot)
 library(tidyverse)
 library(clonevol)
-library("plyr")
+#library("plyr")
 
-setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/cfDNA_analysis/Updated_files_pyclone/")
+setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/trees_from_updated_solutions/data_and_trees/")
 
 
-filenames_py <- list.files("deepsequencing_purity_full",pattern="*.pyclone.results.tsv", full.names = TRUE)
+filenames_py <- list.files("00-inputs-pyclone",pattern="*.pyclone.results.tsv", full.names = TRUE)
 attackStats_py <- lapply(filenames_py,function(x) {
      read.delim(x, header=TRUE, sep = "\t")
      })
@@ -17,38 +17,81 @@ attackStats_py <- lapply(filenames_py,function(x) {
 py_data <- do.call("rbind", attackStats_py) 
 py_data_good<-py_data %>% separate(mutation_id, c('Chrom', 'Pos','Ref' ,'Alt' ))
 #py_data_good<-py_data_good[!grepl("_C",py_data_good$sample_id),]
-
-
 py_data_good$unique_sample_id<-gsub("_.*$","",py_data_good$sample_id)
 py_data_good$pos_id<-paste(py_data_good$Chrom,py_data_good$Pos, sep = "_")
 
+## load vaf files and adjust drivers
+vafs<-list.files ("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/filtered_variants", pattern = "*.filtered.variants.oxomerge.final.txt", full.names = TRUE)
 
-meta<-read.table(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/metadata_updated.txt", header = FALSE, sep= "\t")[,c(1:4,6)]
-colnames(meta)<-c("sample_id", "purity","ploidy","RT_status","RT_code")
-meta$unique_sample_id<-gsub("_.*$","",meta$sample_id)
+attackStats_mafs <- lapply(vafs,function(x) {
+     read.delim(x, header=TRUE, sep = "\t")[,c(1:7)]
+     })
+
+for (i in 1:length(attackStats_mafs)){
+    attackStats_mafs[[i]]<-cbind(attackStats_mafs[[i]],vafs[i])
+    }
+aa <- do.call("rbind", attackStats_mafs) 
+aa$sample_id<-gsub("/Users/shaghayeghsoudi/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/filtered_variants/", "",gsub(".filtered.variants.oxomerge.final.txt","",aa[,8]))
+
+drivers<-c("TP53","ATRX","RB1")
+
+
+aa$gene<-ifelse(aa$Gene== "TP53", "TP53",
+                        ifelse(aa$Gene== "ATRX", "ATRX",
+                        ifelse(aa$Gene== "RB1", "RB1",
+                        "-")))
+
+aa$is.driver<-ifelse(aa$Gene== "TP53", "TRUE",
+                        ifelse(aa$Gene== "ATRX", "TRUE",
+                        ifelse(aa$Gene== "RB1", "TRUE",
+                        "FALSE")))
+
+
+####################
+## load meta data ##
+meta<-read.table(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/metadata_updated_shaghayegh_Feb2023_based_on_new_solutions.txt", header = TRUE, sep= "\t")
+#colnames(meta)<-c("sample_id", "purity","ploidy","RT_status","RT_code")
+meta$unique_sample_id<-gsub("_.*$","",meta$sampleid)
 #paied_samples<-c("SRC125","SRC127","SRC169","SRC170","SRC171","TB9051","SRC167")
 #meta_paied<-meta[meta$unique_sample_id%in%paied_samples,]
 
 py_samples<-unique(py_data_good$unique_sample_id)
-#[1] "SRC125"  "SRC127"  "SRC130"  "SRC150"  "SRC167"  "SRC168"  "SRC169"  "SRC170"  "SRC171" 
-#[10] "SRC172"  "SRC173"  "TB11985" "TB12052" "TB13092" "TB13712" "TB13959" "TB22446" "TB8016" 
-#[19] "TB9051"  "TB9573" 
 
 ################
 #out_res_py<-NULL
 #for (zz in 1:length(py_samples)){
 
 #py_focal<-py_data_good[py_data_good$unique_sample_id==py_samples[zz],]
-py_focal<-py_data_good[py_data_good$unique_sample_id=="SRC169",]
-mutaion_RT_focal<-merge(py_focal,meta, by.x = "sample_id", by.y = "sample_id")
+py_focal<-py_data_good[py_data_good$unique_sample_id=="SRC125",]
+mutaion_RT_focal<-merge(py_focal,meta, by.x = "sample_id", by.y = "sampleid")
+
+mutaion_RT_focal$RT_status<-ifelse(mutaion_RT_focal$sequenceofsamplevRT== "beforeRT", "preRT",
+                        ifelse(mutaion_RT_focal$sequenceofsamplevRT== "nopreopRT", "preRT",
+                        ifelse(mutaion_RT_focal$sequenceofsamplevRT== "afterRT", "postRT",
+                        "-")))
 mutaion_RT_focal$identifier<-paste(mutaion_RT_focal$unique_sample_id.x,mutaion_RT_focal$RT_status, sep = "_")
 mutaion_RT_focal$code<-paste(mutaion_RT_focal$sample_id,mutaion_RT_focal$RT_status, sep = "_")
 mutaion_RT_focal$pos_identifier<-gsub("chr","",mutaion_RT_focal$pos_id)
 
 pos_identifier<-unique(mutaion_RT_focal$pos_identifier)
-mutaion_RT_focal_good<-mutaion_RT_focal[,c("code","cluster_id","cellular_prevalence","pos_identifier")]
+mutaion_RT_focal_good<-mutaion_RT_focal[,c("code","cluster_id","cellular_prevalence","pos_identifier","sample_id")]
 mutaion_RT_focal_good$code<-gsub("-.*","",mutaion_RT_focal_good$code)
 #mutaion_RT_focal_good<-mutaion_RT_focal_good[!(grepl("SRC168_7_noRT",mutaion_RT_focal_good$code) |  grepl("SRC168_8_noRT",mutaion_RT_focal_good$code) | grepl("SRC168_9_noRT",mutaion_RT_focal_good$cod)),]
+mutaion_RT_focal_good<-mutaion_RT_focal_good[grep("preRT",mutaion_RT_focal_good$code),]
+
+#samples_focal<-unique(mutaion_RT_focal_good$sample_id)
+#
+#out_res_mutaion_RT_focal_good<-NULL
+#for(kk in 1:length(samples_focal)){
+#
+#    focal_sample<-mutaion_RT_focal_good[mutaion_RT_focal_good$sample_id==samples_focal[kk], ]
+#    aa_here<-aa[aa$sample_id==samples_focal[kk],c(1:7,9:11)]
+#    aa_here$Chromosome<-gsub("chr","",aa_here$Chromosome)
+#    aa_here$pos_identifier<-paste(aa_here$Chromosome ,aa_here$Start , sep = "_")
+#    focal_samplel_good<-merge(focal_sample,aa_here, by.x = "pos_identifier", by.y = "pos_identifier")
+#    out_res_mutaion_RT_focal_good<-rbind(out_res_mutaion_RT_focal_good,out_res)
+#
+#}
 
 
 out_res_phy<-NULL
@@ -57,6 +100,10 @@ for(ii in 1:length(pos_identifier)) {
     focal_pos<-mutaion_RT_focal_good[mutaion_RT_focal_good$pos_identifier== pos_identifier[ii],]
     focal_pos$cellular_prevalence<-(focal_pos$cellular_prevalence)*100
     #focal_pos$cellular_prevalence<-(focal_pos$cellular_prevalence)/2
+
+
+    #focal_pos<-out_res_mutaion_RT_focal_good[out_res_mutaion_RT_focal_good$pos_identifier== pos_identifier[ii],]
+    #focal_pos$cellular_prevalence<-(focal_pos$cellular_prevalence)*100
 
     aa<-data.frame(t(focal_pos))
     colnames(aa)<-aa[1,]
@@ -88,6 +135,15 @@ for(ii in 1:length(pos_identifier)) {
 
 
 
+#aa_good<-aa[,c(1:7,9:11)]
+#aa_good$pos_identifier<-paste(aa_good$Chromosome ,aa_good$Start , sep = "_")
+#aa_good$subject<-gsub("_.*$","",aa_good$sample_id)
+#aa_good_focal<-aa_good[aa_good$subject =="SRC127",]
+#aa_good_focal$pos_identifier<-gsub("chr","",aa_good_focal$pos_identifier)
+#aa_good_foca_uniq<-aa_good_focal[!duplicated(aa_good_focal$pos_identifier),]
+
+#out_res_phy<-merge(out_res_phy,aa_good_foca_uniq, by.x = "position", by.y = "pos_identifier")
+
 #### take care of founding population
 vaf.col.names = grep('.vaf', colnames(out_res_phy), value=T)
 colnames(out_res_phy) = gsub('.vaf', '', colnames(out_res_phy))
@@ -100,11 +156,34 @@ vaf.col.names = gsub('.vaf', '', vaf.col.names)
 
 # make sure cluster are continuous integer starting at 1
 out_res_phy$cluster[out_res_phy$cluster == 0] = max(out_res_phy$cluster) + 1
+#out_res_phy_good_count<-out_res_phy[which(table(out_res_phy$cluster)>5),]
+
+#good_cluste<-data.frame("good"=which(table(out_res_phy$cluster)>5))
+#out_res_phy_good<-out_res_phy[out_res_phy$cluster%in%good_cluste$good,]
 
 
-out_res_phy$cluster[out_res_phy$cluster == 4] <- 77
-out_res_phy$cluster[out_res_phy$cluster == 1] <- 4
+
+out_res_phy$cluster[out_res_phy$cluster == 7] <- 77
+out_res_phy$cluster[out_res_phy$cluster == 1] <- 7
 out_res_phy$cluster[out_res_phy$cluster == 77] <- 1
+
+
+#out_res_phy<-out_res_phy[out_res_phy$cluster !=1,]
+#out_res_phy$cluster[out_res_phy$cluster == 6] <- 1
+#out_res_phy$cluster[out_res_phy$cluster == 7] <- 6
+#out_res_phy$cluster[out_res_phy$cluster == 8] <- 7
+
+#out_res_phy<-out_res_phy[out_res_phy$cluster!=9,]
+#out_res_phy_good$cluster_good[out_res_phy_good$cluster==7]<-1
+#out_res_phy_good$cluster_good[out_res_phy_good$cluster==1]<-2
+#out_res_phy_good$cluster_good[out_res_phy_good$cluster==3]<-3
+#out_res_phy_good$cluster_good[out_res_phy_good$cluster==4]<-4
+#out_res_phy_good$cluster_good[out_res_phy_good$cluster==5]<-5
+#out_res_phy_good$cluster_good[out_res_phy_good$cluster==6]<-6
+
+
+#names(out_res_phy_good)[8]<-"cluster_original"
+#names(out_res_phy_good)[10]<-"cluster"
 
 
 
@@ -112,9 +191,10 @@ out_res_phy$cluster[out_res_phy$cluster == 77] <- 1
 clone.colors <-NULL
 
 # plot cluster of variants to make sure clustering is good
-pdf(file = paste("~/Desktop/clonevol.vaf.box_TB9051.pdf", sep = "") ,width = 5, height = 10, useDingbats = FALSE, title='')
+pdf(file = paste("~/Desktop/clonevol.vaf.box_SRC170.pdf", sep = "") ,width = 5, height = 10, useDingbats = FALSE, title='')
 pp <- plot.variant.clusters(out_res_phy,
     cluster.col.name = 'cluster',
+    #cluster.col.name = 'cluster_re',
     show.cluster.size = FALSE,
     cluster.size.text.color = 'tomato',
     vaf.col.names = vaf.col.names,
@@ -153,13 +233,15 @@ clone.colors = NULL
 clone.colors = NULL
 # Plotting mean/median of clusters across samples (cluster flow)
 #pdf(file = paste("deepsequencing_purity_full/clonevol_outs/clonevol.vaf.across.samples.box_",py_samples[zz],".pdf", sep = "") ,width = 15, height = 5, useDingbats = FALSE, title='')
-pdf(file = "~/Desktop/clonevol.vaf.across.samples.box_SRC169.pdf", width = 15, height = 5, useDingbats = FALSE)
+pdf(file = "~/Desktop/clonevol.vaf.across.samples.box_SRC170.pdf", width = 15, height = 5, useDingbats = FALSE)
 plot.cluster.flow(out_res_phy, vaf.col.names = vaf.col.names,
 sample.names = vaf.col.names,
 colors = clone.colors)
 dev.off()
 
+###
 
+###
 y = infer.clonal.models(variants = out_res_phy,
     cluster.col.name = 'cluster',
     vaf.col.names = vaf.col.names,
@@ -176,6 +258,12 @@ y = infer.clonal.models(variants = out_res_phy,
     sum.p = 0.05,
     alpha = 0.05)
     
+
+y <- transfer.events.to.consensus.trees(y,
+out_res_phy[out_res_phy$is.driver,],
+cluster.col.name = 'cluster',
+event.col.name = 'gene')
+
 y = convert.consensus.tree.clone.to.branch(y)   
 
 
@@ -225,7 +313,7 @@ plot.clonal.models(y,
     show.score = FALSE,
     cell.frac.ci = TRUE,
     disable.cell.frac = FALSE,
-    out.dir = 'output_TB13092_regional', out.format = 'pdf',
+    out.dir = 'output_SRC125_regional', out.format = 'pdf',
     overwrite.output = TRUE,
     width = 11, height = 7,
     panel.widths = c(3,4,2,4,4))
@@ -250,7 +338,7 @@ dev.off()
 
 
 limit_to_vaf<-out_res_phy[,vaf.col.names]
-preRT<-out_res_phy[,grep("pre",names(limit_to_vaf))]
+preRT<-limit_to_vaf[,grep("pre",names(limit_to_vaf))]
 #preRT<-data.frame("SRC167_5_preRT"=(limit_to_vaf[,grep("pre",names(limit_to_vaf))]))
 postRT<-limit_to_vaf[,grep("post",names(limit_to_vaf))]
 
@@ -262,16 +350,14 @@ postRT_mean<-data.frame("post.vaf"=rowMeans(postRT))
 cluste<-out_res_phy[,c("cluster","position")]
 both<-cbind(preRT_mean,postRT_mean,cluste)
 
-
-
 vaf.col.names = grep('.vaf', colnames(both), value=T)
 colnames(both) = gsub('.vaf', '', colnames(both))
 vaf.col.names = gsub('.vaf', '', vaf.col.names)
 
 
-#both$cluster[both$cluster == 2] <- 77
-#both$cluster[both$cluster == 1] <- 2
-#both$cluster[both$cluster == 77] <- 1
+both$cluster[both$cluster == 7] <- 77
+both$cluster[both$cluster == 1] <- 7
+both$cluster[both$cluster == 77] <- 1
 
 # make sure cluster are continuous integer starting at 1
 #both$cluster[both$cluster == 0] = max(both$cluster) + 1
@@ -315,7 +401,7 @@ pp <- plot.variant.clusters(both,
 
 clone.colors<-NULL
 # Plotting mean/median of clusters across samples (cluster flow)
-pdf(file = "~/Desktop/clonevol.vaf_mean_regional.across.samples.box_SRC127.pdf",width = 5, height = 5, useDingbats = FALSE, title='')
+pdf(file = "~/Desktop/clonevol.vaf_mean_regional.across.samples.box_SRC169.pdf",width = 5, height = 5, useDingbats = FALSE, title='')
 plot.cluster.flow(both, vaf.col.names = vaf.col.names,
 sample.names = c("preRT","postRT"),
 colors = clone.colors)
@@ -386,7 +472,7 @@ plot.clonal.models(y,
     show.score = FALSE,
     cell.frac.ci = TRUE,
     disable.cell.frac = FALSE,
-    out.dir = '~/Desktop/output.src127', out.format = 'pdf',
+    out.dir = '~/Desktop/output.src167_mean_regional', out.format = 'pdf',
     overwrite.output = TRUE,
     width = 11, height = 7,
     panel.widths = c(3,4,2,4,4))
@@ -396,7 +482,7 @@ f = generateFishplotInputs(results=y)
 fishes = createFishPlotObjects(f)
 #plot with fishplot
 pdf(file = "~/Desktop/fishplot.src127.mean.reagional.pdf", width=6, height=5)
-for (i in 1:2){
+for (i in 1:3){
 fish = layoutClones(fishes[[i]])
 fish = setCol(fish,f$clonevol.clone.colors)
 fishPlot(fish,shape="spline", title.btm="Patient", cex.title=0.5,

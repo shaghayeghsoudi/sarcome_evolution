@@ -14,8 +14,10 @@ library(kableExtra)
 library(ggplot2)
 library(gridExtra)
 library(BSgenome.Hsapiens.UCSC.hg19)
-library(tidyverse)
+#library(tidyverse)
 library(pheatmap)
+library(ggpubr)
+
 
 # Load mutSignatures
 library(mutSignatures)
@@ -48,7 +50,7 @@ meta<-read.delim(file = "metadata_updated_shaghayegh_Feb2023_based_on_new_soluti
 meta$unique_sample_id<-gsub("_.*$","",meta$sampleid)
 
 mutaion_RT<-merge(shared_clonal_mutations_fix,meta, by.x = "sample_id", by.y = "sampleid")
-mutaion_RT<-mutaion_RT[mutaion_RT$Start!="777428",]
+#mutaion_RT<-mutaion_RT[mutaion_RT$Start!="777428",]
 
 
 mutaion_RT$RTtretment<-ifelse(mutaion_RT$sequenceofsamplevRT== "beforeRT", "naive",
@@ -93,7 +95,6 @@ input_sigmutation_snv<-input_sigmutation[input_sigmutation$REF%in%muts,]
 input_sigmutation_snv<-input_sigmutation_snv[input_sigmutation_snv$ALT%in%muts,]
 #write.table(input_sigmutation_snv, file = "outres_input_mutsignatures_merged_regions_all_samples_tab.txt", sep = "\t", quote = FALSE, row.names = FALSE, col.names = TRUE)
 
-########################################################################
 ########################################################################
 ########################################################################
 #### start with Mutsignatures ####
@@ -157,7 +158,6 @@ write.table(y_pre, file = "MutSignatures/Feb_2023/outres_compute_mutType_MutSign
 
 ######################################################
 ######################################################
-
 pre.counts <- countMutTypes(mutTable = y_pre,
                              mutType_colName = "mutType",
                              sample_colName = "SAMPLEID")
@@ -183,7 +183,7 @@ pre.params <-
   mutSignatures::setMutClusterParams( 
     num_processesToExtract = num.sign,    # num signatures to extract
     num_totIterations = 500,               # bootstrapping: usually 500-1000
-    num_parallelCores = 6)                # total num of cores to use (parallelization)
+    num_parallelCores = 10)                # total num of cores to use (parallelization)
 
 
 # Extract new signatures (de-novo mutations)- may take a while
@@ -209,36 +209,72 @@ for (pp in 1:length(num.sign)){
   dev.off()
 }
 
-
 png(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/barplot_denovo_MutSignature_counts_per_sample_all_samples_merged_regions_boot500.png")
 msigPlot(pre.exp) + 
   scale_fill_manual(values = c("#1f78b4", "#cab2d6", "#ff7f00", "#a6cee3"))
 dev.off()
 
-write.table(xprt, file = "MutSignatures/Feb_2023/out_put_mutsignatures_xprt_denove_3_signature_count_All_RT.txt")
+# Export Signatures as data.frame
+xprt <- coerceObj(x = pre.exp, to = "data.frame") 
+
+#head(xprt) %>% kable() %>% kable_styling(bootstrap_options = "striped")
 
 
+write.table(xprt, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/MutSignatures/Feb_2023/out_put_mutsignatures_xprt_denove_3_signature_count_All_RT.txt", col.names = TRUE, row.names = TRUE, sep = "\t", quote = FALSE)
+xprt<-read.delim(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/MutSignatures/Feb_2023/out_put_mutsignatures_xprt_denove_3_signature_count_All_RT.txt", header = TRUE, sep = "\t")
 ########################################################
 ##### costom visualization of denovo exposures #########
 denovo_exp<-data.frame(t(xprt))
 
 our_res_exp<-NULL
-for (jj in 1:ncol(denovo_exp)){
+for(kk in 1:nrow(denovo_exp)){
 
-    denovo_exp_focal<-data.frame(denovo_exp[,jj])
-    denovo_exp_focal$sample_id<-rownames(denovo_exp)
-    denovo_exp_focal$sig<-rep(colnames(denovo_exp)[jj])
-    colnames(denovo_exp_focal)<-c("count","sample_id","sig")
-    our_res_exp<-rbind(denovo_exp_focal,our_res_exp)
+  focal_sample<-denovo_exp[kk,]
+  focal_sample<-(focal_sample/rowSums(focal_sample))*100
+  count_table<-data.frame(t(focal_sample))
+  count_table$sig<-rownames(count_table)
+  count_table$sample_id<-rownames(denovo_exp[kk,])
+  colnames(count_table)<-c("relative_contribution","sig","sample_id")
+  rownames(count_table)<-NULL
+  our_res_exp<-rbind(count_table,our_res_exp)
 }
 
-png("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/barplot_cexp_counts_all_samples_sample_annotated.png", width = 500, height = 500)
-plota<-ggplot(our_res_exp, aes(x = sample_id, y= count,fill = sig)) + 
+write.table(our_res_exp, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/MutSignatures/Feb_2023/out_put_mutsignatures_xprt_relative_contribution_percentage_denove_3_signature_count_All_RT.txt")
+
+
+pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/barplot_cexp_counts_all_samples_sample_annotated_relative_contribution_percentage.pdf", width = 6, height = 7)
+plota<-ggplot(our_res_exp, aes(x = sample_id, y= relative_contribution,fill = sig)) + 
    geom_bar(stat = "identity")+
    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 print(plota)
 dev.off()   
 
+### boxplots 
+our_res_exp$RTstatus<-gsub(".*_","",our_res_exp$sample_id)
+our_res_exp$RTstatus<-gsub("naive","noRT",our_res_exp$RTstatus)
+our_res_exp$RTstatus<-gsub("RTtreatment","postRT",our_res_exp$RTstatus)
+
+denovos<-unique(our_res_exp$sig)
+
+my.plot.denovo <- vector(mode = "list", length = 4)  ### adjust based on the number of Cosmic signatures taken
+
+for(dd in 1:length(denovos)){
+  focal<-our_res_exp[our_res_exp$sig==denovos[dd],]
+
+  plot_sig1<-ggplot(focal, aes(x=RTstatus, y=relative_contribution, fill = RTstatus)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=0.7) +
+                labs(title=sigs[ss]) 
+                F1<-plot_sig1 + stat_compare_means()
+                #F1 <- plot_sig1 + stat_compare_means(method = "t.test")
+                my.plot[[dd]] <- F1
+}
+
+pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/boxplot_denovo_relative_contribution_percent_all_samples_sample_annotated.pdf", width = 9, height = 10)
+plots_denovo_all<-multiplot(plotlist = my.plot[1:3],cols= 1) 
+print(plots_denovo_all)
+dev.off()
 
 #### heatmap of denovo exposure frequencies ####
 freq<-data.frame(table(y_pre$SAMPLEID))
@@ -292,7 +328,7 @@ for (jj in 1:nrow(out_res_final_xprt)){
   print(sig1)
   dev.off()
 }
-     
+
 ###############################################################
 ###############################################################
 # Retrieve COSMIC signatures from online repo, and then subset
@@ -300,7 +336,9 @@ for (jj in 1:nrow(out_res_final_xprt)){
 ###############################################################
 cosmix <- getCosmicSignatures() 
 #cosmx <- as.mutation.signatures(cosmx)
-cosmx<-cosmix[c(1, 2, 5,13)]
+cosmx<-cosmix[c(1, 2,3, 5,6,13)]
+cosmx<-cosmix[c(1,2,5,13)]
+
 
 # match OVcar and COSMIC signatures
 png("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/heatmap_similarities_denovo_cosmic_all_samples.png", width = 700, height = 700)
@@ -317,51 +355,83 @@ blca.expo2 <- resolveMutSignatures(mutCountData = xx,
 
 blca.exp.1x <- blca.expo1$Results$count.result
 blca.exp.1x_df <- coerceObj(x = blca.exp.1x, to = "data.frame") 
-write.table(blca.exp.1x_df, file = "MutSignatures/Feb_2023/out_put_mutsignatures_blca.exp.1x_cosmic_signature_count_All_RT.txt")
+write.table(blca.exp.1x_df, file = "MutSignatures/Feb_2023/out_put_mutsignatures_blca.exp.1x_cosmic_signature_four_count_All_RT.txt")
 
 
 blca.exp.2x <- blca.expo2$Results$count.result
 blca.exp.2x_df <- coerceObj(x = blca.exp.2x, to = "data.frame") 
 write.table(blca.exp.2x_df, file = "MutSignatures/Feb_2023/out_put_mutsignatures_blca.exp.2x_denove_signature_count_All_RT.txt")
 
-
 # Plot exposures
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/barplot_cosmic_signatures_bp1_counts_all_samples.pdf")
-bp1 <- msigPlot(blca.exp.1x, main = "BLCA | COSMIC sigs.") + 
-  scale_fill_manual(values = c("#fdbf6f", "#e31a1c", "#fb9a99", "#1f78b4"))
-print(bp1)
-dev.off()
-
-
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/barplot_cosmic_signatures_bp2_counts_all_samples.pdf")
-bp2 <- msigPlot(blca.exp.2x, main = "BLCA | pre-blca sigs.") + 
-  scale_fill_manual(values = c("#fdbf6f", "#e31a1c", "#fb9a99", "#1f78b4"))
-print(bp1)
-dev.off()
-
-# Visualize
-grid.arrange(bp1, bp2, ncol = 2)
-
-
-#### custom plots of cosmic signatures
 cosmic_exp<-data.frame(t(blca.exp.1x_df))
 
-out_res_cos<-NULL
-for (jj in 1:ncol(cosmic_exp)){
+our_res_exp<-NULL
+for(kk in 1:nrow(cosmic_exp)){
 
-    cosmic_exp_focal<-data.frame(cosmic_exp[,jj])
-    cosmic_exp_focal$sample_id<-rownames(cosmic_exp)
-    cosmic_exp_focal$sig<-rep(colnames(cosmic_exp)[jj])
-    colnames(cosmic_exp_focal)<-c("count","sample_id","sig")
-    out_res_cos<-rbind(cosmic_exp_focal,out_res_cos)
+  focal_sample<-cosmic_exp[kk,]
+  focal_sample<-(focal_sample/rowSums(focal_sample))*100
+  count_table<-data.frame(t(focal_sample))
+  count_table$sig<-rownames(count_table)
+  count_table$sample_id<-rownames(cosmic_exp[kk,])
+  colnames(count_table)<-c("relative_contribution","sig","sample_id")
+  rownames(count_table)<-NULL
+  our_res_exp<-rbind(count_table,our_res_exp)
 }
 
-png("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/barplot_cosmic_signatures_counts_all_samples_annotated.png", width = 700, height = 700)
-plotb<-ggplot(out_res_cos, aes(x = sample_id, y= count,fill = sig)) + 
+write.table(our_res_exp, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/MutSignatures/Feb_2023/out_put_mutsignatures_xprt_relative_contribution_percentage_cosmic_4signature_count_All_RT.txt")
+
+
+pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/barplot_6cosmic_cexp_counts_all_samples_sample_annotated_relative_contribution_percentage.pdf", width = 6, height = 7)
+plota<-ggplot(our_res_exp, aes(x = sample_id, y= relative_contribution,fill = sig)) + 
    geom_bar(stat = "identity")+
    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-print(plotb)
+print(plota)
 dev.off()   
+
+### boxplots 
+our_res_exp$RTstatus<-gsub(".*_","",our_res_exp$sample_id)
+our_res_exp$RTstatus<-gsub("naive","noRT",our_res_exp$RTstatus)
+our_res_exp$RTstatus<-gsub("RTtreatment","postRT",our_res_exp$RTstatus)
+names(our_res_exp)[1]<-"percent_relative_contribution"
+
+sigs<-unique(our_res_exp$sig)
+my.plot <- vector(mode = "list", length = 4)  ### adjust based on the number of Cosmic signatures taken
+
+for(ss in 1:length(sigs)){
+  focal<-our_res_exp[our_res_exp$sig==sigs[ss],]
+
+  plot_sig1<-ggplot(focal, aes(x=RTstatus, y=percent_relative_contribution, fill = RTstatus)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=0.7) +
+                labs(title=sigs[ss]) 
+                F1<-plot_sig1 + stat_compare_means()
+                #F1 <- plot_sig1 + stat_compare_means(method = "t.test")
+                my.plot[[ss]] <- F1
+}
+
+pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/boxplot_cexp_counts_all_samples_sample_annotated_4cosmic_relative_contribution_percentage_denoco.pdf", width = 9, height = 10)
+plots_cosmic_all<-multiplot(plotlist = my.plot[1:4],cols= 2) 
+print(plots_cosmic_all)
+dev.off()
+
+
+
+#pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/barplot_cosmic_signatures_bp1_counts_all_samples.pdf")
+#bp1 <- msigPlot(blca.exp.1x, main = "BLCA | COSMIC sigs.") + 
+#  scale_fill_manual(values = c("#fdbf6f", "#e31a1c", "#fb9a99", "#1f78b4"))
+#print(bp1)
+#dev.off()
+
+
+#pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/barplot_cosmic_signatures_bp2_counts_all_samples.pdf")
+#bp2 <- msigPlot(blca.exp.2x, main = "BLCA | pre-blca sigs.") + 
+#  scale_fill_manual(values = c("#fdbf6f", "#e31a1c", "#fb9a99", "#1f78b4"))
+#print(bp1)
+#dev.off()
+
+# Visualize
+#grid.arrange(bp1, bp2, ncol = 2)
 
 #### heatmap of denovo exposure frequencies ####
 freq<-data.frame(table(y_pre$SAMPLEID))
@@ -386,9 +456,11 @@ for(k in 1:length(samples)){
 
 out_res_final_xprtcos<-t(out_res_xprtcos)
 rownames(out_res_final_xprtcos)<-c("Cosmic.01","Cosmic.02","Cosmic.05","Cosmic13")
+#rownames(out_res_final_xprtcos)<-c("Cosmic.01","Cosmic.02","Cosmic.03","Cosmic.05","Cosmic.06","Cosmic.13")
+
 out_res_final_xprtcos_df<-data.frame(out_res_final_xprtcos)
 
-png("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/heatmap_Cosmic_signatures_frequencies_all_samples_annotated_clustered.png", width = 700, height = 700)
+pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/MutationalSignature/from_new_metadata_Feb2023/heatmap_4Cosmic_signatures_frequencies_all_samples_annotated_clustered.pdf", width = 8, height = 8)
 plot_heat<-pheatmap(out_res_final_xprtcos_df,cluster_rows =FALSE)
 print(plot_heat)
 dev.off()
