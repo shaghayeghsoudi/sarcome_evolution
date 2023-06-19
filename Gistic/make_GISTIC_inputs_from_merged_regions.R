@@ -303,33 +303,3 @@ all_final$seqnames<-gsub("chr","",all_final$seqnames)
 
 all_final_nodup<-all_final[!duplicated(all_final),]
 write.table(all_final_nodup, file = "out_res_all_chroms_merged_regions_per_patient_for_GISTIC.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
-
-   
-
-bedtoolsr::bt.complement(aa_bed, fai)
-
-
-###
-bt.complement            package:bedtoolsr             R Documentation
-
-Returns the base pair complement of a feature file.
-
-Description:
-
-     Returns the base pair complement of a feature file.
-
-Usage:
-
-     bt.complement(i, g, L = NULL, output = NULL)
-     
-Arguments:
-
-       i: <bed/gff/vcf>
-
-       g: <genome>
-
-       L: Limit output to solely the chromosomes with records in the
-          input file.
-
-  output: Output filepath instead of returning output in R.
-
