@@ -16,8 +16,8 @@ library(ref_genome, character.only = TRUE)
 
 
 setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs")
-meta<-read.table(file = "metadata_updated.txt", header = FALSE, sep= "\t")[,c(1:4,6)]
-colnames(meta)<-c("sample_id", "purity","ploidy","RT_status","RT_code")
+meta<-read.table(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/metadata_updated.txt", header = FALSE, sep= "\t")
+colnames(meta)<-c("sample_id","RT_status","RT_code")
 meta$unique_sample_id<-gsub("_.*$","",meta$sample_id)
 
 

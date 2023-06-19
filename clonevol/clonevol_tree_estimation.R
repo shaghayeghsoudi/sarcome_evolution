@@ -20,6 +20,13 @@ py_data_good<-py_data %>% separate(mutation_id, c('Chrom', 'Pos','Ref' ,'Alt' ))
 py_data_good$unique_sample_id<-gsub("_.*$","",py_data_good$sample_id)
 py_data_good$pos_id<-paste(py_data_good$Chrom,py_data_good$Pos, sep = "_")
 
+# Chrom      Pos Ref Alt sample_id cluster_id cellular_prevalence cellular_prevalence_std
+#1 chr11 70176412   C   G  SRC125_1          0              0.5389                  0.0221
+#2 chr11 70176412   C   G  SRC125_2          0              0.6084                  0.0176
+#  cluster_assignment_prob unique_sample_id         pos_id
+#1                       1           SRC125 chr11_70176412
+#2                       1           SRC125 chr11_70176412
+
 ## load vaf files and adjust drivers
 vafs<-list.files ("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/filtered_variants", pattern = "*.filtered.variants.oxomerge.final.txt", full.names = TRUE)
 

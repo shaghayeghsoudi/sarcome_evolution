@@ -1,0 +1,33 @@
+library("rjson")#
+library(tidyr)#
+library(dplyr)#
+library(ggplot2)#
+library(forcats)#
+library(reshape2)#
+library(kableExtra)#
+library(gridExtra)#
+library(BSgenome.Hsapiens.UCSC.hg19)#
+library(pheatmap)#
+library(ggpubr)#
+source("http://peterhaschke.com/Code/multiplot.R")#
+# Load mutSignatures#
+library(mutSignatures)#
+# prep hg19#
+hg19 <- BSgenome.Hsapiens.UCSC.hg19
+meta<-read.table(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/metadata_updated_shaghayegh_Feb2023_based_on_new_solutions.txt", header = TRUE, sep= "\t")#
+#
+meta$RTstatus<-ifelse(meta$sequenceofsamplevRT== "beforeRT", "noRT",#
+                        ifelse(meta$sequenceofsamplevRT== "afterRT", "postRT",#
+                        ifelse(meta$sequenceofsamplevRT== "nopreopRT", "noRT",#
+                        "-")))#
+#
+meta$sequenceofsamplevRT<-gsub("beforeRT","preRT",meta$sequenceofsamplevRT)#
+meta$sequenceofsamplevRT<-gsub("afterRT","postRT",meta$sequenceofsamplevRT)#
+meta$sequenceofsamplevRT<-gsub("nopreopRT","noRT",meta$sequenceofsamplevRT)#
+#
+meta$unique_sample_id<-gsub("_.*$","",meta$sampleid)#
+#mutaion_RT<-merge(py_data_good,meta, by.x = "sample_id", by.y = "sampleid")#
+#
+meta$identifier<-paste(meta$unique_sample_id,meta$RTstatus, sep = "_")#
+#mutaion_RT$pos_identifier<-gsub("chr","",mutaion_RT$pos_id)
+head(meta)

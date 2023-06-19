@@ -274,7 +274,7 @@ nmf_res <- rename_nmf_signatures(nmf_res, signatures, cutoff = 0.85)
 
 nmf_res_contribution<-data.frame(nmf_res$contribution)
 #rownames(nmf_res_contribution)<-c("SBS1-like","SBSA","SBSB")
-write.table(nmf_res_contribution, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/out_res_nmf_res_contribution_exome_96profile_noindel_Feb2023.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
+write.table(nmf_res_contribution, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/mutational_patterns/out_res_nmf_res_contribution_exome_96profile_noindel_Feb2023.txt", col.names = TRUE, row.names = TRUE, sep = "\t",quote = FALSE)
 
 ## make a heatmap of denovo signature contribution 
 hclust_signatures <- cluster_signatures(nmf_res$signatures, method = "average")
