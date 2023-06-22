@@ -128,7 +128,7 @@ tree_mutation$founder_branch<-paste(tree_mutation$sample_id,tree_mutation$founde
 write.table(tree_mutation, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/data/out_res_muttaions_assigned_on_branch_trunk_based_on_pairtree.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
 
 #####################################################################
-############ 
+############ Start from here for signature analysis #################
 tree_mutation<-read.delim(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/data/out_res_muttaions_assigned_on_branch_trunk_based_on_pairtree.txt", header = TRUE)
 tree_mutation$TB_id2<-gsub("trunk_founder","early",tree_mutation$TB_id2)   ## set id you want to run on trunk vs. branch or founder vs nonfounder
 tree_mutation$TB_id2<-gsub("branch","late",tree_mutation$TB_id2)
