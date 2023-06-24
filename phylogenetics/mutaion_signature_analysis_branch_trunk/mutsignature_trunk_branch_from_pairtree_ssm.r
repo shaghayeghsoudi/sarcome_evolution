@@ -21,6 +21,8 @@ library(mutSignatures)
 # prep hg19
 hg19 <- BSgenome.Hsapiens.UCSC.hg19
 
+######## prepare require input files for the tree signature analysis ###########
+
 ###################################
 ### load metadata ###
 ################################### 
@@ -129,9 +131,15 @@ write.table(tree_mutation, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_ana
 
 #####################################################################
 ############ Start from here for signature analysis #################
+#####################################################################
+
 tree_mutation<-read.delim(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/data/out_res_muttaions_assigned_on_branch_trunk_based_on_pairtree.txt", header = TRUE)
-tree_mutation$TB_id2<-gsub("trunk_founder","early",tree_mutation$TB_id2)   ## set id you want to run on trunk vs. branch or founder vs nonfounder
-tree_mutation$TB_id2<-gsub("branch","late",tree_mutation$TB_id2)
+
+#tree_mutation$TB_id2<-gsub("trunk_founder","early",tree_mutation$TB_id2)   ## set id you want to run on trunk vs. branch or founder vs nonfounder
+tree_mutation$founder_nonfounder<-gsub("branch","nonfounder",tree_mutation$TB_id2)
+
+
+
 tree_mutation_good<-tree_mutation[,c("Chrom","Pos","Ref","Alt","TB_id1")]
 muts<-c("A","T","C","G")
 input_sigmutation_snv<-tree_mutation_good[tree_mutation_good$Ref%in%muts,]
