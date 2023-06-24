@@ -1,10 +1,6 @@
 
 
 ## analyze mutational signature in branch vs. trunk with mutSignatures from ssm files
-
-
-#for f in *.tsv; do mv -- "$f" "${f%.tsv}_noRT.tsv"; done
-#for f in *.vcf; do (echo "##fileformat=VCFv4.1" && cat "$f") > "${f%.vcf}_corrected.vcf" && rm "$f"; done 
 rm(list = ls())
 library(rjson)
 library(tidyr)
@@ -24,6 +20,8 @@ source("http://peterhaschke.com/Code/multiplot.R")
 library(mutSignatures)
 # prep hg19
 hg19 <- BSgenome.Hsapiens.UCSC.hg19
+
+######## prepare require input files for the tree signature analysis ###########
 
 ###################################
 ### load metadata ###
@@ -123,41 +121,39 @@ mut_table<-merge(out_res_pp,py_data_good,by.x = "checkpoint", by.y= "checkpoint"
 mut_table$sample_cluster<-paste(mut_table$subject_id.y ,mut_table$cluster_id ,sep = "_")
 tree_mutation<-merge(mut_table,tree, by.x = "sample_cluster",by.y = "sample_cluster")
 
-tree_mutation$TB_id1<-paste(tree_mutation$sample_id,tree_mutation$tree_location,sep = "_")
-tree_mutation$TB_id2<-paste(tree_mutation$sample_id,tree_mutation$tree_detail, sep = "_")
 
-
-#out_res_good<-out_res[,c("Chrom","Pos","Ref","Alt","TB_id")]
-#colnames(out_res_good)<-c("CHROM","POS","REF","ALT","SAMPLEID")
-
+tree_mutation$trunk_branch<-paste(tree_mutation$sample_id,tree_mutation$trunk_branch,sep = "_")
+tree_mutation$founder_nonfounder<-paste(tree_mutation$sample_id,tree_mutation$founder_nonfounder,sep = "_")
+tree_mutation$founder_terminal<-paste(tree_mutation$sample_id,tree_mutation$founder_terminal,sep = "_")
+tree_mutation$founder_branch<-paste(tree_mutation$sample_id,tree_mutation$founder_branch,sep = "_")
 
 write.table(tree_mutation, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/data/out_res_muttaions_assigned_on_branch_trunk_based_on_pairtree.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
 
+#####################################################################
+############ Start from here for signature analysis #################
+#####################################################################
+
 tree_mutation<-read.delim(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/data/out_res_muttaions_assigned_on_branch_trunk_based_on_pairtree.txt", header = TRUE)
 
+#tree_mutation$TB_id2<-gsub("trunk_founder","early",tree_mutation$TB_id2)   ## set id you want to run on trunk vs. branch or founder vs nonfounder
+tree_mutation$founder_nonfounder<-gsub("branch","nonfounder",tree_mutation$TB_id2)
 
-tree_mutation$TB_id2<-gsub("trunk_founder","early",tree_mutation$TB_id1)   ## set id you want to run on trunk vs. branch or founder vs nonfounder
-tree_mutation$TB_id2<-gsub("branch","late",tree_mutation$TB_id2)
 
 
 tree_mutation_good<-tree_mutation[,c("Chrom","Pos","Ref","Alt","TB_id1")]
 muts<-c("A","T","C","G")
 input_sigmutation_snv<-tree_mutation_good[tree_mutation_good$Ref%in%muts,]
 input_sigmutation_snv<-input_sigmutation_snv[input_sigmutation_snv$Alt%in%muts,]
-
 colnames(input_sigmutation_snv)<-c("CHROM","POS","REF","ALT","SAMPLEID")
 
 table_count<-table(input_sigmutation_snv$SAMPLEID)
 input_sigmutation_snv <- input_sigmutation_snv[input_sigmutation_snv$SAMPLEID %in% names(table_count[table_count >=10]), ]
 input_sigmutation_snv$SAMPLEID<-gsub("preRT","noRT",input_sigmutation_snv$SAMPLEID)
-
-
 input_sigmutation_snv_pre<-input_sigmutation_snv[grepl("noRT",input_sigmutation_snv$SAMPLEID),]  ### make a subset of only no-radiation samples
+
 ########################################################################
 ########################################################################
 #### start with Mutsignatures ####
-#### extrcat preRT samples
-#y_pre<-input_sigmutation_snv[grepl("noRT",input_sigmutation_snv$SAMPLEID),]
 y_pre<-input_sigmutation_snv_pre
 #De novo extraction of Mutational Signatures 
 # Attach context
@@ -180,36 +176,8 @@ y_pre <- attachMutType(mutData = y_pre,                      # as above
                    var_colName = "ALT",              # column name for mut base
                    context_colName = "context") 
 
-
-write.table(y_pre, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/trunk_branch/trunk_branch_two_denovo_and_COSMIC_mut10/outres_attachMutType_onlynoRT_trunk_branch_based_on_pairtree_threshold10mut.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
-
-######################################################
-### look at corrections with particular muttaion type
-#age<-read.delim(file= "~/Desktop/age.txt", header = FALSE)
-#colnames(age)<-c("sample_id","non","necrosis","age")
-#my_y_pre<-y_pre%>%separate(SAMPLEID,c("uniq_sample_id","RT"))
-#age_good<-age[age$sample_id%in%my_y_pre$uniq_sample_id,]
-
-#pre_with_age<-merge(my_y_pre,age_good, by.x = "uniq_sample_id", by.y = "sample_id")
-#pre_with_age_clock_mut<-pre_with_age[grepl("C>T",pre_with_age$mutType),]
-#freq<-data.frame(table(pre_with_age$uniq_sample_id))
-
-#final<-merge(freq, age_good, by.x = "Var1", by.y = "sample_id")
-
-#ggplot(final, aes(x=age, y=Freq)) + 
-#geom_point()+
-#  geom_smooth(method=lm)
-
-
-### with ggscatter 
-# ggscatter(final, x="age", y="Freq",
-#          add = "reg.line",                                 # Add regression line
-#          conf.int = TRUE,                                  # Add confidence interval
-#         add.params = list(color = "blue",
-#                            fill = "lightgray")
-#          )+
-#  stat_cor(method = "pearson", label.x = 3, label.y = 30)  # Add correlation coefficient
-
+setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/trunk-branch-10mutation-threshld")
+write.table(y_pre, file = "outres_attachMutType_onlynoRT_based_on_pairtree_threshold10mut.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
 
 ######################################################
 ######################################################
@@ -258,7 +226,7 @@ pre.exp <- pre.analysis$Results$exposures
 # Plot signature 1 (standard barplot, you can pass extra args such as ylim)
 for (pp in 1:2){
 
-  pdf(file = paste("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/trunk_branch/trunk_branch_two_denovo_and_COSMIC_mut10/denovo_MutSignature_onlynoRT_sign_",pp,"_based_on_pairtree_denovotwo.pdf",sep = ""))
+  pdf(file = paste("denovo_MutSignature_onlynoRT_sign_",pp,"_based_on_pairtree_denovotwo.pdf",sep = ""))
   msigPlot(pre.sig, signature = pp, ylim = c(0, 0.10))
   dev.off()
 }
@@ -272,37 +240,38 @@ for (pp in 1:2){
 xprt <- coerceObj(x = pre.exp, to = "data.frame") 
 
 #head(xprt) %>% kable() %>% kable_styling(bootstrap_options = "striped")
-write.table(xprt, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/trunk_branch/trunk_branch_two_denovo_and_COSMIC_mut10/out_put_mutsignatures_xprt_denove_2_signature_onlynoRT_count_based_on_pairtree.txt", col.names = TRUE, row.names = TRUE, sep = "\t", quote = FALSE)
+write.table(xprt, file = "output_mutsignatures_xprt_denove2_count_onlynoRT_based_on_pairtree.txt", col.names = TRUE, row.names = TRUE, sep = "\t", quote = FALSE)
 #xprt<-read.delim(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/MutSignatures/Feb_2023/out_put_mutsignatures_xprt_denove_3_signature_count_All_RT.txt", header = TRUE, sep = "\t")
 
 
-##########
-######### do paired t-test of raw count
-xprt_good<-data.frame(t(xprt))
-xprt_good$sample_tree<-rownames(xprt_good)
-xprt_good_t<-xprt_good %>% separate(sample_tree,c("subject","RT","positio"))
-xprt_good_t$id<-paste(xprt_good_t$subject ,xprt_good_t$RT, sep = "_")
+##############################################
+######### do paired t-test of raw count ######
+##############################################
+#xprt_good<-data.frame(t(xprt))
+#xprt_good$sample_tree<-rownames(xprt_good)
+#xprt_good_t<-xprt_good %>% separate(sample_tree,c("subject","RT","position"))
+#xprt_good_t$id<-paste(xprt_good_t$subject ,xprt_good_t$RT, sep = "_")
+#
+#find_paires<-table(xprt_good_t$subject)
+#paired_samples<-xprt_good_t[xprt_good_t$subject%in%names(find_paires[find_paires >=2]),]
+#xprt_good_paired<-xprt_good_t[xprt_good_t$subject %in%paired_samples$subject,]
+#sigs<-grep("Sign", names(xprt_good_paired), value=TRUE)
+#
+#
+#out_res<-NULL
+#for(ss in 1:length(sigs)){
+#
+#  xprt_focal<-xprt_good_paired[,c(which(colnames(xprt_good_paired)==sigs[ss]),5)]
+#  res_tpaired <- t.test( xprt_focal[,1] ~ position, data =  xprt_focal, paired = TRUE)
+#  res_tpaired_df<-data.frame( map_df(list(res_tpaired), tidy))
+#  res_tpaired_df$sig<-sigs[ss]
+#  out_res<-rbind(res_tpaired_df,out_res)
+#}
 
-find_paires<-table(xprt_good_t$subject)
-paired_samples<-xprt_good_t[xprt_good_t$subject%in%names(find_paires[find_paires >=2]),]
-xprt_good_paired<-xprt_good_t[xprt_good_t$subject %in%paired_samples$subject,]
-sigs<-grep("Sign", names(xprt_good_paired), value=TRUE)
+#write.table(out_res, file = "outres_paired_ttest_xprt_denove2_count_onlynoRT_based_on_pairtree.table", col.names = TRUE, row.names = TRUE, sep = "\t", quote = FALSE)
 
-
-out_res<-NULL
-for(ss in 1:length(sigs)){
-
-  xprt_focal<-xprt_good_paired[,c(colnames(xprt_good_paired)==sigs[ss],"positio")]
-  res_tpaired <- t.test( Sign.01 ~ positio, data =  xprt_focal, paired = TRUE)
-  res_tpaired_df<-data.frame( map_df(list(res), tidy))
-  out_res<-rbind(res_tpaired_df,out_res)
-}
-
-
-########################################################
-##### costom visualization of denovo exposures #########
-### stacked bar plot all samples to gether
-
+##################################################
+############## normalize raw counts ##############
 denovo_exp<-data.frame(t(xprt))
 our_res_exp<-NULL
 for(kk in 1:nrow(denovo_exp)){
@@ -316,23 +285,14 @@ for(kk in 1:nrow(denovo_exp)){
   rownames(count_table)<-NULL
   our_res_exp<-rbind(count_table,our_res_exp)
 }
+write.table(our_res_exp, file = "outres_mutsignature_noRT_2denovo_relative_contribution_pairtree.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
 
-write.table(our_res_exp, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/founder_branch/noRT_twodenovo/out_put_mutsignatures_only_noRT_xprt_relative_contribution_percentage_denove_2_signature_count_trunk_and_branch_based_on_pairtrer.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
-
-
-pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/founder_branch/noRT_twodenovo/barplot_trunk_branch_2denovo_sigs_onlynoRT_relative_contribution_based_on_pairtree.pdf", width = 6, height = 7)
-plota<-ggplot(our_res_exp, aes(x = sample_id, y= relative_contribution,fill = sig)) + 
-   geom_bar(stat = "identity")+
-   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-print(plota)
-dev.off()   
-
+##############################################################
 ### make boxplots to comapre relative contribution in trunk versus branch for each denovo mutations
 our_res_exp$tree_position<-gsub(".*_","",our_res_exp$sample_id)
 denovos<-unique(our_res_exp$sig)
 
 my.plot.denovo <- vector(mode = "list", length = 2)  ### adjust based on the number of Cosmic signatures taken
-
 for(dd in 1:length(denovos)){
   focal<-our_res_exp[our_res_exp$sig==denovos[dd],]
 
@@ -348,8 +308,8 @@ for(dd in 1:length(denovos)){
 }
 
 
-pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/founder_branch/noRT_twodenovo/boxplot_2denovo_relative_contribution_onlynoRT_percent_trunk_branch_based_on_pairtree.pdf", width = 4, height = 8)
-plots_denovo_all<-multiplot(plotlist = my.plot.denovo[1:3],cols= 1) 
+pdf("boxplot_2denovo_relative_contribution_onlynoRT_percent_based_on_pairtree.pdf", width = 4, height = 8)
+plots_denovo_all<-multiplot(plotlist = my.plot.denovo[1:2],cols= 1) 
 print(plots_denovo_all)
 dev.off()
 
@@ -365,7 +325,7 @@ our_res_exp %>%
     xlab("denovo signature") +
     geom_point(position=position_jitterdodge())+
     ylim(0,100) + stat_compare_means(method = "t.test",label = "p.signif", size = 8)
-ggsave(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/founder_branch/noRT_twodenovo/violinplot_2denovo_relative_contribution_onlynoRT_percent_trunk_branch_based_on_pairtree.pdf", width = 6, height = 6)
+ggsave(file = "violinplot_2denovo_relative_contribution_onlynoRT_percent_based_on_pairtree.pdf", width = 4, height = 5)
 
 ### exclude postRT samples 
 #our_res_exp_naive<-our_res_exp[grep("noRT|preRT",our_res_exp$sample_id),]
@@ -385,49 +345,99 @@ ggsave(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_anal
 #############################################
 ### make stacked bar plot for each sample ####
 our_res_exp$subject_id<-sub('^([^_]+_[^_]+).*', '\\1', our_res_exp$sample_id)
+our_res_exp$subject<-gsub("_noRT","",our_res_exp$subject_id)
+find_paires<-table(our_res_exp$sample_id)
+pairs<-names(find_paires[find_paires >=2])   #### picking only paired samples for plotting
+#our_res_exp_pairs<-our_res_exp[our_res_exp$subject%in%pairs,]
+our_res_exp_pairs<-our_res_exp[our_res_exp$sample_id%in%pairs,]
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/founder_branch/noRT_twodenovo/barplot_stacked_onlynoRT_per_sample_2denovo_relative_contribution_trunk_branch_based_on_ppairtree.pdf", width = 14, height  = 8)
-plot_stack<-ggplot(our_res_exp,                         # Draw barplot with grouping & stacking
+
+pdf(file = "barplot_stacked_onlynoRT_2denovo_relative_contribution_based_on_ppairtree.pdf", width = 8, height  = 6)
+plot_stack<-ggplot(our_res_exp_pairs,                         # Draw barplot with grouping & stacking
        aes(x = tree_position,
            y = relative_contribution,
            fill = sig)) + 
   geom_bar(stat = "identity",
            position = "stack") +
-  facet_wrap(~ subject_id, nrow = 2)
+  scale_fill_manual(values=c('tomato', 'steelblue4'))+
+  facet_wrap(~ subject_id, nrow = 2) 
 print(plot_stack)
 dev.off()
 
 
-#### heatmap of denovo exposure frequencies ####
-freq<-data.frame(table(y_pre$SAMPLEID))
-#freq<-freq%>%separate(Var1,c("uniq_sample_id","RT"))
+##########################################################
+### make box plot for paired samples and do paired t-test
+##########################################################
 
-samples<-colnames(xprt)
+write.table(our_res_exp_pairs, file = "paired_early_late_samples_only_exp_denovo.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
+my.plot.denovo <- vector(mode = "list", length = 2)  ### adjust based on the number of Cosmic signatures taken
+for(dd in 1:length(denovos)){
+  focal<-our_res_exp_pairs[our_res_exp_pairs$sig==denovos[dd],]
+  focal$position<-sub('.*\\_', '', focal$sample_i)
 
-out_res_xprt<-NULL
-for(k in 1:length(samples)){
-
-    xprt_focal<-xprt[,colnames(xprt)==samples[k]]
-    focal_count<-freq[freq$Var1==samples[k],]
-    table_count<-data.frame("freq"=xprt_focal/focal_count$Freq)
-    colnames(table_count)<-samples[k]
-
-    table<-t(table_count)
-    #rownames(table)<-c("Sign.01","Sign.02","Sign.03","Sign.04")
-    out_res_xprt<-rbind(table,out_res_xprt)
-
+  plot_sig1<-ggplot(focal, aes(x=position, y=relative_contribution, fill = position)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=0.7) +
+                geom_line(aes(group=subject)) +
+                labs(title=denovos[dd]) 
+                 F1<-plot_sig1+ stat_compare_means(method = "t.test",paired= TRUE)  ## add P-value
+                #F1<-plot_sig1 + stat_compare_means()
+                #F1 <- plot_sig1 + stat_compare_means(method = "t.test")
+                my.plot.denovo[[dd]] <- F1
 }
 
-out_res_final_xprt<-t(out_res_xprt)
-rownames(out_res_final_xprt)<-c("Sign.01","Sign.02")
-out_res_final_xprt_df<-data.frame(out_res_final_xprt)
-
-write.table(out_res_final_xprt_df, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/trunk_branch/trunk_branch_two_denovo/out_put_mutsignatures_xprt_relative_contribution_onlynoRT_percentage_denove_2_signature_count_trunk_and_branch_based_on_pairtree.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
-
-
-pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/trunk_branch/trunk_branch_two_denovo/heatmap_2denovo_onlynoRT_frequencies_trunk_branch_bsed_on_pairtree.pdf", width = 7, height = 7)
-pheatmap(out_res_final_xprt_df,cluster_rows =FALSE)
+pdf("boxplot_paired_tteststat_2denovo_relative_contribution_onlynoRT_percent_based_on_pairtree.pdf", width = 4, height = 8)
+plots_denovo_all<-multiplot(plotlist = my.plot.denovo[1:2],cols= 1) 
+print(plots_denovo_all)
 dev.off()
+
+###### make paired-t test table #########
+out_res<-NULL
+for(dd in 1:length(sigs)){
+
+  exp_pairs_focal<-our_res_exp_pairs[our_res_exp_pairs$sig==sigs[dd],]
+  exp_pairs_focal$position<-sub('.*\\_', '', exp_pairs_focal$sample_i)
+
+  res_tpaired <- t.test( relative_contribution ~ position, data =  exp_pairs_focal, paired = TRUE)
+  res_tpaired_df<-data.frame( map_df(list(res_tpaired), tidy))
+  res_tpaired_df$sig<-sigs[ss]
+  out_res<-rbind(res_tpaired_df,out_res)
+}
+
+write.table(out_res, file = "outres_paired_ttest_xprt_denove2_normalized_relative_contribution_onlynoRT_based_on_pairtree.table", col.names = TRUE, row.names = TRUE, sep = "\t", quote = FALSE)
+
+
+#################################################
+#################################################
+#### heatmap of denovo exposure frequencies ####
+#freq<-data.frame(table(y_pre$SAMPLEID))
+#freq<-freq%>%separate(Var1,c("uniq_sample_id","RT"))
+#samples<-colnames(xprt)
+#
+#out_res_xprt<-NULL
+#for(k in 1:length(samples)){
+#
+#    xprt_focal<-xprt[,colnames(xprt)==samples[k]]
+#    focal_count<-freq[freq$Var1==samples[k],]
+#    table_count<-data.frame("freq"=xprt_focal/focal_count$Freq)
+#    colnames(table_count)<-samples[k]
+#
+#    table<-t(table_count)
+#    #rownames(table)<-c("Sign.01","Sign.02","Sign.03","Sign.04")
+#    out_res_xprt<-rbind(table,out_res_xprt)
+#
+#}
+
+#out_res_final_xprt<-t(out_res_xprt)
+#rownames(out_res_final_xprt)<-c("Sign.01","Sign.02")
+#out_res_final_xprt_df<-data.frame(out_res_final_xprt)
+#write.table(out_res_final_xprt_df, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/trunk_branch/trunk_branch_two_denovo/out_put_mutsignatures_xprt_relative_contribution_onlynoRT_percentage_denove_2_signature_count_trunk_and_branch_based_on_pairtree.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
+
+
+#pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/trunk_branch/trunk_branch_two_denovo/heatmap_2denovo_onlynoRT_frequencies_trunk_branch_bsed_on_pairtree.pdf", width = 7, height = 7)
+#pheatmap(out_res_final_xprt_df,cluster_rows =FALSE)
+#dev.off()
 
 ### make ordered heatmap ###
 #ordered<-c("SRC125_preRT","SRC127_preRT","SRC167_preRT","SRC169_preRT","SRC170_preRT","SRC171_preRT","TB9051_preRT","SRC125_postRT","SRC127_postRT","SRC167_postRT","SRC169_postRT","SRC170_postRT","SRC171_postRT","TB22446_postRT","TB9051_postRT","RC130_noRT","SRC168_noRT" ,"SRC172_noRT","SRC173_noRT", "TB13092_noRT","TB13712_noRT","TB13959_noRT","TB9573_noRT")
@@ -439,45 +449,34 @@ dev.off()
 
 
 ########################################################
-####### do paired t-test ############
-
-our_res_exp_sig1<-our_res_exp[our_res_exp$sig=="Sign.02",]
-our_res_exp_sig1$uniq_subject<-gsub("_.*$","",our_res_exp_sig1$subject_id)
-
-#our_res_exp_sig1_paired<-our_res_exp_sig1[table(our_res_exp_sig1$uniq_subject)>1,]
-paired<-c("SRC125","SRC127","SRC171","SRC172","TB13092" ,"TB13712")
-our_res_exp_sig1_paired<-our_res_exp_sig1[our_res_exp_sig1$uniq_subject%in%paired,]
-res <- t.test( relative_contribution ~ tree_position, data = our_res_exp_sig1_paired, paired = TRUE)
-
-########################################################
 ############ chi square test of independence ###########
 #### test to see if there is asscociation between the signature contribution and tree location (chi square test)
-samples_TB<-c("TB13712_noRT","TB13712_noRT","TB13092_noRT","TB13092_noRT","SRC172_noRT" ,"SRC172_noRT","SRC171_noRT" ,"SRC171_noRT" ,"SRC127_noRT" ,"SRC127_noRT", "SRC125_noRT", "SRC125_noRT")
+#samples_TB<-c("TB13712_noRT","TB13712_noRT","TB13092_noRT","TB13092_noRT","SRC172_noRT" ,"SRC172_noRT","SRC171_noRT" ,"SRC171_noRT" ,"SRC127_noRT" ,"SRC127_noRT", "SRC125_noRT", "SRC125_noRT")
+#
+#for(zz in 1:length(samples_TB)){
+#  focal_clumn<-out_res_final_xprt_df[,(grep(samples_TB[zz],colnames(out_res_final_xprt_df)))]
+#  chisq.test(focal_clumn)
+#}
+#
+#
+#trunk<-out_res_final_xprt_df[,grep("trunk",colnames(out_res_final_xprt_df))]
+#rowsum_trunk<-rowSums(trunk)
+#branch<-out_res_final_xprt_df[,grep("branch",colnames(out_res_final_xprt_df))]
+#rowsum_branch<-rowSums(branch)
+#
+#rowsum_both<-rbind(rowsum_trunk,rowsum_branch)
+#rownames(rowsum_both)<-c("trunk","branch")
 
-for(zz in 1:length(samples_TB)){
-  focal_clumn<-out_res_final_xprt_df[,(grep(samples_TB[zz],colnames(out_res_final_xprt_df)))]
-  chisq.test(focal_clumn)
-}
 
+#our_res_denovo_test<-NULL
+#for(ll in 1:nrow(rowsum_both)){
+#  focal_row<-t(data.frame(rowsum_both[ll,]))
+#  rownames(focal_row)<-rownames(rowsum_both)[ll]
+#  focal_row<-(focal_row/rowSums(focal_row))*100
+#  our_res_denovo_test<-rbind(focal_row,our_res_denovo_test)
+#}
 
-trunk<-out_res_final_xprt_df[,grep("trunk",colnames(out_res_final_xprt_df))]
-rowsum_trunk<-rowSums(trunk)
-branch<-out_res_final_xprt_df[,grep("branch",colnames(out_res_final_xprt_df))]
-rowsum_branch<-rowSums(branch)
-
-rowsum_both<-rbind(rowsum_trunk,rowsum_branch)
-rownames(rowsum_both)<-c("trunk","branch")
-
-
-our_res_denovo_test<-NULL
-for(ll in 1:nrow(rowsum_both)){
-  focal_row<-t(data.frame(rowsum_both[ll,]))
-  rownames(focal_row)<-rownames(rowsum_both)[ll]
-  focal_row<-(focal_row/rowSums(focal_row))*100
-  our_res_denovo_test<-rbind(focal_row,our_res_denovo_test)
-}
-
-test <- chisq.test(our_res_denovo_test)
+#test <- chisq.test(our_res_denovo_test)
 
 ###############################################################
 ###############################################################
@@ -491,7 +490,7 @@ cosmx<-cosmix[c(1,2,5,13)]
 
 
 # match OVcar and COSMIC signatures
-pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/trunk_branch/trunk_branch_two_denovo/heatmap_cusine_similarities_onlynoRT_2denovo_cosmic_all_samples.pdf", width = 7, height = 7)
+pdf("heatmap_cusine_similarities_onlynoRT_2denovo_cosmic_all_samples.pdf", width = 7, height = 7)
 mSign.sar <- matchSignatures(mutSign = pre.sig, reference = cosmix)
 print(mSign.sar$plot)
 dev.off()
@@ -505,39 +504,48 @@ blca.expo2 <- resolveMutSignatures(mutCountData = xx,      ####
 
 blca.exp.1x <- blca.expo1$Results$count.result
 blca.exp.1x_df <- coerceObj(x = blca.exp.1x, to = "data.frame") 
-write.table(blca.exp.1x_df, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/out_put_mutsignatures_blca.exp.1x_cosmic_signature_count4_trunk_branch_based_on_pairtree_founder.txt", col.names = TRUE, row.names = TRUE, sep = "\t",quote = FALSE)
+write.table(blca.exp.1x_df, file = "output_mutsignatures_blca.exp.1x_cosmic4_raw_counts_based_on_pairtree.txt", col.names = TRUE, row.names = TRUE, sep = "\t",quote = FALSE)
 
 
-#################
-###### do paired t-test of raw cosmic counts
-blca.exp.1x_good<-data.frame(t(blca.exp.1x_df))
-blca.exp.1x_good$sample_tree<-rownames(blca.exp.1x_good)
-blca.exp.1x_good_t<-blca.exp.1x_good %>% separate(sample_tree,c("subject","RT","positio"))
-blca.exp.1x_good_t$id<-paste(blca.exp.1x_good_t$subject ,blca.exp.1x_good_t$RT, sep = "_")
-#paired<-c("SRC125","SRC127","SRC171","SRC172","TB13092" ,"TB13712")
-paired<-c("SRC127","SRC169","SRC170","SRC171","TB9051")
-blca.exp.1x_good_t_paired<-blca.exp.1x_good_t[blca.exp.1x_good_t$subject %in%paired,]
-blca.exp.1x_good_t_paired_sig1<-blca.exp.1x_good_t_paired[,c("COSMIC.13","positio")]
-res <- t.test( COSMIC.13 ~ positio, data = blca.exp.1x_good_t_paired_sig1, paired = TRUE)
-res
+######################################################
+###### do paired t-test of raw cosmic counts #########
+#blca.exp.1x_good<-data.frame(t(blca.exp.1x_df))
+#blca.exp.1x_good$sample_tree<-rownames(blca.exp.1x_good)
+#blca.exp.1x_good_t<-blca.exp.1x_good %>% separate(sample_tree,c("subject","RT","positio"))
+#blca.exp.1x_good_t$id<-paste(blca.exp.1x_good_t$subject ,blca.exp.1x_good_t$RT, sep = "_")
 
 
+#find_paires_cosmic<-table(blca.exp.1x_good_t$subject)
+#paired_samples_cosmic<-blca.exp.1x_good_t[blca.exp.1x_good_t$subject%in%names(find_paires_cosmic[find_paires_cosmic >=2]),]
+#blca_paired<-blca.exp.1x_good_t[blca.exp.1x_good_t$subject %in% paired_samples_cosmic$subject,]
+#sigs_cosmic<-grep("COSMIC", names(blca_paired), value=TRUE)
 
+#out_res_cosmic<-NULL
+#for(cc in 1:length(sigs_cosmic)){
+#
+#  blca_focal<-blca_paired[,c(which(colnames(blca_paired)==sigs_cosmic[cc]),7)]  ### column 7 is trunk or branch
+#  res_tpaired <- t.test( blca_focal[,1] ~ positio, data =  blca_focal, paired = TRUE)
+#  res_tpaired_df<-data.frame( map_df(list(res_tpaired), tidy))
+#  res_tpaired_df$cosmic<-sigs_cosmic[cc]
+#  out_res_cosmic<-rbind(res_tpaired_df,out_res_cosmic)
+#}
+
+#write.table(out_res, file = "outres_paired_ttest_cosmic_count_onlynoRT_based_on_pairtree.table", col.names = TRUE, row.names = TRUE, sep = "\t", quote = FALSE)
 
 
 
 blca.exp.1x.freq <- blca.expo1$Results$freq.result
 blca.exp.1x_df.freq <- coerceObj(x = blca.exp.1x.freq, to = "data.frame") 
-write.table(blca.exp.1x_df.freq, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/out_put_mutsignatures_blca.exp.1x_cosmic_signature_freq4_trunk_branch_based_on_pairtree_founder.txt", col.names = TRUE, row.names = TRUE, sep = "\t",quote = FALSE)
+write.table(blca.exp.1x_df.freq, file = "output_mutsignatures_blca.exp.1x_cosmic_signature_freq4_based_on_pairtree.txt", col.names = TRUE, row.names = TRUE, sep = "\t",quote = FALSE)
 
 
-blca.exp.2x <- blca.expo2$Results$count.result
-blca.exp.2x_df <- coerceObj(x = blca.exp.2x, to = "data.frame") 
-write.table(blca.exp.2x_df, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/out_put_mutsignatures_blca.exp.2x_denove_signature_count_All_RT_based_on_pairtree_founder.txt")
+#blca.exp.2x <- blca.expo2$Results$count.result
+#blca.exp.2x_df <- coerceObj(x = blca.exp.2x, to = "data.frame") 
+#write.table(blca.exp.2x_df, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/out_put_mutsignatures_blca.exp.2x_denove_signature_count_All_RT_based_on_pairtree_founder.txt")
 
 
 
-# Plot exposures
+# Plot exposures of stacked bar plot
 cosmic_exp<-data.frame(t(blca.exp.1x_df))
 
 our_res_exp_cosmic<-NULL
@@ -553,10 +561,10 @@ for(kk in 1:nrow(cosmic_exp)){
   our_res_exp_cosmic<-rbind(count_table,our_res_exp_cosmic)
 }
 
-write.table(our_res_exp, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/out_put_mutsignatures_xprt_relative_contribution_percentage_cosmic_4signature_count_All_RT.txt",col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
+write.table(our_res_exp_cosmic, file = "output_mutsignatures_xprt_relative_contribution_percentage_cosmic_4signature_count_All_RT.txt",col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
 
 
-pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/founder_branch/noRT_twodenovo/barplot_4cosmic_cexp_relative_contribution_percentage_trunk_branch_based_on_pairtree_founder.pdf", width = 6, height = 7)
+pdf("barplot_4cosmic_cexp_relative_contribution_percentage_based_on_pairtree_founder.pdf", width = 6, height = 7)
 plota<-ggplot(our_res_exp_cosmic, aes(x = sample_id, y= relative_contribution,fill = sig)) + 
    geom_bar(stat = "identity")+
    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
@@ -581,80 +589,114 @@ our_res_exp_cosmic %>%
     xlab("denovo signature") +
     geom_point(position=position_jitterdodge())+
     ylim(0,100) + stat_compare_means(method = "t.test",label = "p.signif", size = 8)
-ggsave(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/violinplot_cosmic_relative_contribution_percent_trunk_branch_based_on_pairtree.pdf", width = 6, height = 6)
+ggsave(file = "violinplot_cosmic_relative_contribution_percent_based_on_pairtree.pdf", width = 6, height = 6)
 
 
-
-### exclude postRT samples
-our_res_exp_cosmic_naive<-our_res_exp_cosmic[grep("noRT|preRT",our_res_exp_cosmic$sample_id),]
-
-our_res_exp_cosmic_naive %>%
-
-  ggplot(aes(fill=tree_position, y=relative_contribution, x=sig)) + 
-    geom_violin()+
-    #geom_violin(position="dodge", alpha=0.5, outlier.colour="transparent") +
-    #scale_fill_viridis(discrete=T, name="") +
-    #theme_ipsum()  +
-    xlab("denovo signature") +
-    geom_point(position=position_jitterdodge())+
-    ylim(0,100) + stat_compare_means(method = "t.test",label = "p.signif", size = 8)
-ggsave(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/violinplot_treatment_cosmic_relative_contribution_percent_trunk_branch_based_on_pairtree.pdf", width = 6, height = 6)
-
-
-##### make  stacked barplot ########
+##### make grouped stacked barplot ########
 our_res_exp_cosmic$subject_id<-sub('^([^_]+_[^_]+).*', '\\1', our_res_exp_cosmic$sample_id)
+our_res_exp_cosmic$subject<-gsub("_noRT","",our_res_exp_cosmic$subject_id)
+
+pairs<-names(find_paires[find_paires >=2])
+our_res_exp_cosmic_pairs<-our_res_exp_cosmic[our_res_exp_cosmic$subject%in%pairs,]
 
 
-#nobranch<-c("SRC130","SRC150", "SRC168","TB11985")
-#our_res_exp_cosmic_TBboth<-our_res_exp_cosmic[!(our_res_exp_cosmic$subject_id%in%nobranch),]
-#our_res_exp_cosmic_TBboth$tree_position<-gsub(".*_","",our_res_exp_cosmic_TBboth$sample_id)
 
-
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/founder_branch/noRT_twodenovo/barplot_stacked_per_sample_4Cosmic_relative_contribution_trunk_branch_from_pairtree.pdf", width = 10, height  = 8.5)
-plot_stack<-ggplot(our_res_exp_cosmic,                         # Draw barplot with grouping & stacking
-       aes(x = tree_position,
+pdf(file = "barplot_stacked_per_sample_4Cosmic_relative_contribution_from_pairtree.pdf", width = 10, height  = 8.5)
+plot_stack<-ggplot(our_res_exp_cosmic_pairs,                         # Draw barplot with grouping & stacking
+           aes(x = tree_position,
            y = relative_contribution,
            fill = sig)) + 
-  geom_bar(stat = "identity",
+           geom_bar(stat = "identity",
            position = "stack") +
-  facet_wrap(~ subject_id, nrow = 3)
+           scale_fill_manual(values=c('tomato', 'steelblue4','darkorchid4','forestgreen')) +
+           facet_wrap(~ subject_id, nrow = 2)
   #facet_grid(~ subject_id, nrow = 2)
 print(plot_stack)
 dev.off()
 
 
 ### boxplots to comapre each signature in branch vs. trunk
-#our_res_exp$RTstatus<-gsub("naive","noRT",our_res_exp$RTstatus)
-#our_res_exp$RTstatus<-gsub("RTtreatment","postRT",our_res_exp$RTstatus)
 names(our_res_exp_cosmic)[1]<-"percent_relative_contribution"
 
-sigs<-unique(our_res_exp_cosmic$sig)
+sigs_cosmic<-unique(our_res_exp_cosmic$sig)
 my.plot <- vector(mode = "list", length = 4)  ### adjust based on the number of Cosmic signatures taken
 
-for(ss in 1:length(sigs)){
-  focal<-our_res_exp_cosmic[our_res_exp_cosmic$sig==sigs[ss],]
+for(ss in 1:length(sigs_cosmic)){
+  focal<-our_res_exp_cosmic[our_res_exp_cosmic$sig==sigs_cosmic[ss],]
 
   plot_sig1<-ggplot(focal, aes(x=tree_position, y=percent_relative_contribution, fill = tree_position)) + 
   geom_boxplot(outlier.colour="black",
                 outlier.size=0.7) +
                 geom_dotplot(binaxis='y', stackdir='center', dotsize=0.7) +
-                labs(title=sigs[ss]) 
+                labs(title=sigs_cosmic[ss]) 
                 #F1<-plot_sig1 + stat_compare_means()
                 F1 <- plot_sig1 + stat_compare_means(method = "t.test")
                 my.plot[[ss]] <- F1
 }
 
-pdf("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/boxplot_cexp_counts_all_samples_sample_annotated_4cosmic_relative_contribution_percentage_denoco_based_on_pairtree_founder.pdf", width = 9, height = 10)
+pdf("boxplot_cexp_counts_all_samples_sample_annotated_4cosmic_relative_contribution_percentage_denoco_based_on_pairtree_founder.pdf", width = 9, height = 10)
 plots_cosmic_all<-multiplot(plotlist = my.plot[1:4],cols= 2) 
 print(plots_cosmic_all)
 dev.off()
 
 
+
+##########################################################
+### make box plot for paired samples and do paired t-test
+##########################################################
+find_paires_cosmic<-table(blca.exp.1x_good_t$subject)
+paired_exp_cosmic<-our_res_exp_cosmic[our_res_exp_cosmic$subject%in%names(find_paires_cosmic[find_paires_cosmic >=2]),]
+
+write.table(paired_exp_cosmic,file="paired_early_late_samples_only_exp_cosmic.txt", col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
+my.plot.denovo <- vector(mode = "list", length = 4)  ### adjust based on the number of Cosmic signatures taken
+
+for(cc in 1:length(sigs_cosmic)){
+  focal<-paired_exp_cosmic[paired_exp_cosmic$sig==sigs_cosmic[cc],]
+
+  plot_sig1<-ggplot(focal, aes(x=tree_position, y=relative_contribution, fill = tree_position)) + 
+  geom_boxplot(outlier.colour="black",
+                outlier.size=0.7) +
+                geom_dotplot(binaxis='y', stackdir='center', dotsize=0.7) +
+                geom_line(aes(group=subject)) +
+                labs(title=sigs_cosmic[cc]) 
+                 F1<-plot_sig1+ stat_compare_means(method = "t.test",paired= TRUE)  ## add P-value
+                #F1<-plot_sig1 + stat_compare_means()
+                #F1 <- plot_sig1 + stat_compare_means(method = "t.test")
+                my.plot.denovo[[cc]] <- F1
+}
+
+pdf("boxplot_paired_tteststat_4cosmic_relative_contribution_onlynoRT_percent_based_on_pairtree.pdf", width = 7, height = 7)
+plots_denovo_all<-multiplot(plotlist = my.plot.denovo[1:4],cols= 2) 
+print(plots_denovo_all)
+dev.off()
+
+###### make paired-t test table #########
+out_res<-NULL
+for(dd in 1:length(sigs)){
+
+  exp_pairs_focal<-our_res_exp_pairs[our_res_exp_pairs$sig==sigs[dd],]
+  exp_pairs_focal$position<-sub('.*\\_', '', exp_pairs_focal$sample_i)
+
+  res_tpaired <- t.test( relative_contribution ~ position, data =  exp_pairs_focal, paired = TRUE)
+  res_tpaired_df<-data.frame( map_df(list(res_tpaired), tidy))
+  res_tpaired_df$sig<-sigs[ss]
+  out_res<-rbind(res_tpaired_df,out_res)
+}
+
+write.table(out_res, file = "outres_paired_ttest_xprt_denove2_normalized_relative_contribution_onlynoRT_based_on_pairtree.table", col.names = TRUE, row.names = TRUE, sep = "\t", quote = FALSE)
+
+
+
+
+
+
+
+
+
+################################################
 #### heatmap of denovo exposure frequencies ####
 #freq<-data.frame(table(y_pre$SAMPLEID))
 #freq<-freq%>%separate(Var1,c("uniq_sample_id","RT"))
-
-
 samples<-colnames(blca.exp.1x_df)
 
 out_res_xprtcos<-NULL
