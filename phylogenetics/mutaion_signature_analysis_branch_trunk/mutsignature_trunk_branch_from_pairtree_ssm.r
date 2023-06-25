@@ -1,3 +1,136 @@
+<<<<<<< HEAD
+=======
+### needs to be replaced with updated scripts ### June 2023
+
+## analyze mutational signature in branch vs. trunk with mutSignatures from ssm files
+rm(list = ls())
+library(rjson)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(forcats)
+library(reshape2)
+library(kableExtra)
+library(gridExtra)
+library(BSgenome.Hsapiens.UCSC.hg19)
+library(pheatmap)
+library(ggpubr)
+library(broom)
+library(purrr)
+source("http://peterhaschke.com/Code/multiplot.R")
+# Load mutSignatures
+library(mutSignatures)
+# prep hg19
+hg19 <- BSgenome.Hsapiens.UCSC.hg19
+
+######## prepare require input files for the tree signature analysis ###########
+
+###################################
+### load metadata ###
+################################### 
+meta<-read.table(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/metadata_updated_shaghayegh_Feb2023_based_on_new_solutions.txt", header = TRUE, sep= "\t")
+
+meta$RTstatus<-ifelse(meta$sequenceofsamplevRT== "beforeRT", "noRT",
+                        ifelse(meta$sequenceofsamplevRT== "afterRT", "postRT",
+                        ifelse(meta$sequenceofsamplevRT== "nopreopRT", "noRT",
+                        "-")))
+
+meta$unique_sample_id<-gsub("_.*$","",meta$sampleid)
+meta$identifier<-paste(meta$unique_sample_id,meta$RTstatus, sep = "_")
+
+###################################
+### load tree Json files ###
+###################################
+## read tree location file
+tree<-read.csv(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/paired_cluster_location_from_pirtree.csv", header = TRUE, sep = ",")
+#tree<-tree[tree$sample_id!="TB12052_postRT",]
+tree$sample_id <- gsub("SRC168_preRT","SRC168_noRT",tree$sample_id)
+samples<-unique(tree$sample_id)
+
+tree<-tree[!(tree$cluster_id==0),]
+tree$sample_cluster<-paste(tree$sample_id ,tree$cluster_id , sep = "_")
+
+############################################################
+############################################################
+################# assign muttaions to clusters ############
+### load pyc.json files 
+file_pyc<-list.files("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/pairtree_to_clonevol/April_updated1/full/pyc.jsons", pattern = "*pyc.out.json", full.names = TRUE)
+
+out_res_pp<-NULL
+for (pp in 1:length(file_pyc)){
+     
+     focal_file_pyc<-file_pyc[pp] 
+     json_focal_pyc <- fromJSON(paste(readLines(focal_file_pyc), collapse=""))  ## parse Json tree file into R
+     ## adjust samples name to match with variant file
+     subject_id<-gsub(".pyc.out.json", "",sub(".*/", "", focal_file_pyc)) 
+     subject_id<-gsub("-","_",subject_id)
+     
+     
+     cluster<-json_focal_pyc$clusters
+     out_res_jj<-NULL
+      for(jj in 1:length(cluster)){
+
+          cluster_focal<-data.frame("id"=cluster[jj])
+          cluster_focal$cluster_id<-jj
+          cluster_focal$subject_id<-subject_id
+          names(cluster_focal)[1]<-"id"
+          out_res_jj<-rbind(cluster_focal,out_res_jj)
+      }
+out_res_pp<-rbind(out_res_jj,out_res_pp)
+
+}
+     
+out_res_pp$checkpoint<-paste(out_res_pp$subject_id ,out_res_pp$id , sep = "_")    
+#    id cluster_id   subject_id
+#1  s2          8 TB9051_preRT
+#2  s7          8 TB9051_preRT
+#3 s10          8 TB9051_preRT
+#4 s14          8 TB9051_preRT    
+  
+#focal_file_tree<-file_trees[tt] 
+#son_focal <- fromJSON(paste(readLines(focal_file_tree), collapse=""))  ## parse Json tree file into R
+
+############################################################
+############################################################
+### load  files to make pyclone muttaion like file ######
+############################################################
+############################################################
+filenames_py <- list.files("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/pairtree_to_clonevol/April_updated1/full/ssms",pattern="*.ssm", full.names = TRUE)  ### load pyclone cluster files
+attackStats_py <- lapply(filenames_py,function(x) {
+     read.delim(x, header=TRUE, sep = "\t")[,c("name","id","mutation_id")]
+     })
+
+for (i in 1:length(attackStats_py)){
+    attackStats_py[[i]]<-cbind(attackStats_py[[i]],filenames_py[i])
+    colnames(attackStats_py[[i]])<-c("position","id","mutation_id","file_name")
+    }
+
+py_data <- do.call("rbind", attackStats_py) 
+py_data$subject_id<-sub('.*\\/', '', py_data$file_name)
+py_data$subject_id<-gsub(".ssm","",py_data$subject_id)
+py_data$subject_id<-gsub("-","_",py_data$subject_id)   # "SRC125_postRT"
+
+py_data_good<-py_data %>% separate(mutation_id, c('Chrom', 'Pos','Ref' ,'Alt' ))  ## make seperate columns for chrom, pos, ref and alt allels
+#py_data_good$unique_sample_id<-gsub("_.*$","",py_data_good$sample_id)
+#py_data_good$subject_id<-gsub("_.*$","",py_data_good$sample_id)
+
+py_data_good$position<-gsub("chr","",py_data_good$position)
+colnames(py_data_good)[colnames(py_data_good) == "position"] <- "pos_id"
+py_data_good<-py_data_good[,-7]
+
+py_data_good$checkpoint<-paste(py_data_good$subject_id ,py_data_good$id , sep = "_")    
+mut_table<-merge(out_res_pp,py_data_good,by.x = "checkpoint", by.y= "checkpoint")[,c("Chrom","Pos","Ref","Alt","subject_id.y","checkpoint","id.x","cluster_id")]
+mut_table$sample_cluster<-paste(mut_table$subject_id.y ,mut_table$cluster_id ,sep = "_")
+tree_mutation<-merge(mut_table,tree, by.x = "sample_cluster",by.y = "sample_cluster")
+
+
+tree_mutation$trunk_branch<-paste(tree_mutation$sample_id,tree_mutation$trunk_branch,sep = "_")
+tree_mutation$founder_nonfounder<-paste(tree_mutation$sample_id,tree_mutation$founder_nonfounder,sep = "_")
+tree_mutation$founder_terminal<-paste(tree_mutation$sample_id,tree_mutation$founder_terminal,sep = "_")
+tree_mutation$founder_branch<-paste(tree_mutation$sample_id,tree_mutation$founder_branch,sep = "_")
+
+write.table(tree_mutation, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/truck_branch_signature_updated_solution/mutsignature/data/out_res_muttaions_assigned_on_branch_trunk_based_on_pairtree.txt", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
+>>>>>>> bc785b8231255dd14713b1105117719b970dd328
 
 #####################################################################
 ############ Start from here for signature analysis #################
@@ -619,3 +752,7 @@ width = 5, height = 5)
 
 
 
+<<<<<<< HEAD
+=======
+test <- chisq.test(our_res_cosmic_test)
+>>>>>>> bc785b8231255dd14713b1105117719b970dd328
