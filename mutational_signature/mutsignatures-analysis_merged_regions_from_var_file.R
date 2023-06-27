@@ -4,10 +4,10 @@
 # Original Author:  Shaghayegh Soudi
 # Contributors:    NA 
 # Date: November 2022
-# Updated: Jun2023
+# Updated: June 2023
 ## for vignette see: # https://cran.r-project.org/web/packages/mutSignatures/vignettes/get_sarted_with_mutSignatures.html
 
-
+#rm(list = ls())
 library(dplyr)
 library(reshape2)
 library(kableExtra)
