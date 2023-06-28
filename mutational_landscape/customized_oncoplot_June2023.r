@@ -168,6 +168,68 @@ oncoplot(maf = laml, draw_titv = TRUE ,
 #print(pt.vs.rt)
 
 
+#########################
+####### plot GISTIC #####
+all_lesions<-read.delim("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/all_lesions.conf_75.txt")
+
+### select colnames with sample iD
+gistic_samples<-all_lesions %>%
+  select(matches('SRC|TB')) %>%
+  colnames()
+
+meta_gistic<-meta[meta$sampleid%in%gistic_samples,]
+meta_gistic<-meta_gistic[,"Tumor_Sample_Barcode"]
+
+
+colnames(all_lesions)[10:36]<-meta_gistic
+all_lesions <- all_lesions [1: ncol(all_lesions)-1 ]
+write.table(all_lesions,file = "~/Desktop/out_gistic/all_legions_updated.txt", col.names = TRUE, row.nam = FALSE, sep = "\t", quote = FALSE)
+
+
+
+vc_cols2 = c("#0484e6","tomato")
+names(vc_cols2) = c(
+  'Del',
+  'Amp'
+)
+
+
+laml.gistic_del <- readGistic(gisticAllLesionsFile ="~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/all_lesions.conf_75.txt", 
+                                                  #gisticAmpGenesFile = "~/Desktop/out_gistic/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/amp_genes.conf_75.txt", 
+                                                  gisticDelGenesFile = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/del_genes.conf_75.txt", 
+                                                  cnLevel = "all", gisticScoresFile = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/scores.gistic")
+
+
+
+gisticOncoPlot(gistic = laml.gistic_del,  
+    removeNonAltered = FALSE,
+    #clinicalData = getClinicalData(x = laml),
+    #clinicalFeatures = "RTstatus",
+    sortByAnnotation = TRUE,
+    colors = vc_cols2,bgCol="white",
+    fontSize=0.5,
+    showTumorSampleBarcodes = TRUE, 
+    SampleNamefontSize = 0.8,
+    sampleOrder=ordered)
+
+
+##### Amplifications (temporray path, works)
+laml.gistic <- readGistic(gisticAllLesionsFile ="~/Desktop/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/all_lesions.conf_75.txt", 
+                          gisticAmpGenesFile = "~/Desktop/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/amp_genes.conf_75.txt", 
+                          #gisticDelGenesFile = "~/Desktop/out_gistic/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/del_genes.conf_75.txt", 
+                          cnLevel = "all", gisticScoresFile = "~/Desktop/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/scores.gistic")
+
+bands_amp<-c("AP_2:1p32.1","AP_3:1p31.2","AP_5:1q21.1","AP_6:3p12.1","AP_7:5p15.33", "AP_8:7p22.1","AP_9:17p11.2" ,"AP_10:20q11.22", "AP_12:20q13.2","AP_13:20q13.33", "AP_15:22q12.3")
+gisticOncoPlot(gistic = laml.gistic,  removeNonAltered = FALSE,clinicalData = getClinicalData(x = laml),
+    #clinicalFeatures = "RTstatus",
+    sortByAnnotation = TRUE,
+    colors = vc_cols2,fontSize=0.5,
+    bgCol="white",bands=bands_amp,
+    showTumorSampleBarcodes = TRUE, 
+    #SampleNamefontSize = 0.6,
+    sampleOrder=ordered)
+
+
 
 
 
