@@ -27,7 +27,7 @@ library(mutSignatures)
 # prep hg19
 hg19 <- BSgenome.Hsapiens.UCSC.hg19
 
-setwd("/Users/shsoudi/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/MutationalSignature/from_filtered_variants_June2023")
+setwd("/Users/shsoudi/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/signature_analysis/MutationalSignature")
 
 #################################
 ### read and adjust meta table ##
