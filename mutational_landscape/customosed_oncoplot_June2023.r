@@ -32,6 +32,10 @@ for (i in 1:length(attackStats_montecarlo)){
     attackStats_montecarlo[[i]]<-cbind(attackStats_montecarlo[[i]],filenames_ssm_cf[i])
     }
 aa_montecarlo<- do.call("rbind", attackStats_montecarlo) 
+aa_montecarlo %>% separate (SAMPLE,c("sample","sample_id","general_info"))
+
+
+
 montecarlo<-aa_montecarlo %>% separate (SAMPLE,c("sample","sample_id","general_info"))
 montecarlo_tumour<-montecarlo[grepl("T",montecarlo$general_info),]   ### subset muttaions only to tumour mutations
 
