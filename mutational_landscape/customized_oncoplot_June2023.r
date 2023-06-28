@@ -105,9 +105,8 @@ sar_aml_genes<-c("TP53","MUC16","TNC","CLTC","NBEA","ATRX","RBM10","COL2A1")
 ###### plot variants with maf tools ###
 #######################################
 colnames(meta_good)[9]<-"Tumor_Sample_Barcode"
-mutaion_RT_good_monto<-read.delim(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/filtered_maf_monto_VAF0.05/pre_postRT_samples_filtered_monto_VAF0.05.maf", header = TRUE)  ### I changed location to GISTIC analysis folder
-mutaion_RT_good$Variant_Classification<-gsub("Splice sites","Splice_Site",mutaion_RT_good$Variant_Classification)
-
+mutaion_RT_good_monto_good<-read.delim(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/filtered_maf_monto_VAF0.05/pre_postRT_samples_filtered_monto_VAF0.05.maf", header = TRUE)  ### I changed location to GISTIC analysis folder
+mutaion_RT_good_monto_good$Variant_Classification<-gsub("Splice sites","Splice_Site",mutaion_RT_good_monto_good$Variant_Classification)
 
 vc_cols = RColorBrewer::brewer.pal(n = 6, name = 'Accent')
 names(vc_cols) = c(
@@ -127,9 +126,48 @@ names(fabcolors) = c("M0", "M1", "M2", "M3", "M4", "M5", "M6")
 vc_nonsyn = c( "Frame_Shift_Ins", "Splice_Site", "Nonsense_Mutation", "Missense_Mutation")
 vc_nonsyn = c(vc_nonsyn, "Silent")
 
-
-
 ordered<-c("SRC125_noRT","SRC127_noRT","SRC130_noRT","SRC167_noRT","SRC168_noRT","SRC169_noRT","SRC170_noRT","SRC171_noRT","SRC172_noRT","SRC173_noRT","TB13092_noRT","TB13712_noRT","TB13959_noRT","TB8016_noRT","TB9051_noRT","TB9573_noRT","SRC125_postRT","SRC127_postRT","SRC150_postRT","SRC167_postRT","SRC169_postRT","SRC170_postRT","SRC171_postRT","TB11985_postRT","TB12052_postRT","TB22446_postRT","TB9051_postRT")
+
+laml = read.maf(maf = mutaion_RT_good_monto_good,
+                clinicalData = meta_good,
+                verbose = FALSE,vc_nonSyn = vc_nonsyn)
+
+#Shows sample summry.
+getSampleSummary(laml)
+#Shows gene summary.
+getGeneSummary(laml)
+#shows clinical data associated with samples
+getClinicalData(laml)
+#Shows all fields in MAF
+getFields(laml) 
+#Writes maf summary to an output file with basename laml.
+#write.mafSummary(maf = sar_laml, basename = 'laml')
+
+
+oncoplot(maf = laml, draw_titv = TRUE ,
+        colors = vc_cols,genes = sar_aml_genes,
+        clinicalFeatures =c("RTstatus","Gender"),
+        sortByAnnotation = TRUE,drawRowBar = TRUE,
+        removeNonMutated= FALSE,barcode_mar = 10,
+        sortByMutation=TRUE,annoBorderCol="white",
+        fontSize=0.5,bgCol="white",
+        #showTumorSampleBarcodes = TRUE,
+        #SampleNamefontSize = 1,
+        sampleOrder=ordered)
+
+##################################################
+### compare two cohorts (before v. after radiation and make forest plot)
+#noRT<-mutaion_RT_good_monto_good[grepl("noRT",mutaion_RT_good_monto_good$RT_status),]
+#postRT<-mutaion_RT_good_monto_good[grepl("postRT",mutaion_RT_good_monto_good$RT_status),]
+#
+#noRT.lam = read.maf(maf = noRT)
+#postRT.lam = read.maf(maf = postRT)
+
+#Considering only genes which are mutated in at-least in 5 samples in one of the cohort to avoid bias due to genes mutated in single sample.
+#pt.vs.rt <- mafCompare(m1 = noRT.lam, m2 = postRT.lam , m1Name = 'noRT', m2Name = 'postRT', minMut = 7)
+#print(pt.vs.rt)
+
+
 
 
 
