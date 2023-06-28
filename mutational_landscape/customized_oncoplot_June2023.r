@@ -95,26 +95,45 @@ mutaion_RT_dedup<-mutaion_RT[!duplicated(mutaion_RT$var_id),]    ### remove dupl
 ############################################
 mutaion_RT_monto<-inner_join(mutaion_RT_dedup,monto_df,by="var_id") %>% 
     select("Gene","Chromosome","Start","End","Impact","Ref", "Alt","identifier.x","RTstatus","Variant_Type") %>% 
-    filter(Start!="Start") 
+    filter(Start!="Start",Impact!="Coding_info") %>% 
+    rename(Gene="Hugo_Symbol",Start ="Start_Position",End= "End_Position",Impact= "Variant_Classification",Ref= "Reference_Allele",Alt= "Tumor_Seq_Allele2",identifier.x="Tumor_Sample_Barcode")
 
-
-
-
-
-
-
-mutaion_RT_monto_good<-mutaion_RT_monto[,c("Gene","Chromosome","Start","End","Impact","Ref", "Alt","identifier.x","RTstatus","Variant_Type")]
-mutaion_RT_monto_good<-mutaion_RT_monto_good[mutaion_RT_monto_good$Start!="Start",]
-
-colnames(mutaion_RT_monto_good)<-c("Hugo_Symbol","Chromosome","Start_Position","End_Position","Variant_Classification","Reference_Allele","Tumor_Seq_Allele2","Tumor_Sample_Barcode","RT_status","Variant_Type")
-
-bad_impact<-c("Coding_info")
-mutaion_RT_monto_good<-mutaion_RT_monto_good[!(mutaion_RT_monto_good$Variant_Classification%in%bad_impact),]
-write.table(mutaion_RT_monto_good,file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/pre_postRT_samples_updated_converted_like_updatedmonto.maf",col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
-
-
-
+write.table(mutaion_RT_monto,file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/filtered_maf_monto_VAF0.05/pre_postRT_samples_filtered_monto_VAF0.05.maf",col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
 sar_aml_genes<-c("TP53","MUC16","TNC","CLTC","NBEA","ATRX","RBM10","COL2A1")
+
+#######################################
+###### plot variants with maf tools ###
+#######################################
+colnames(meta_good)[9]<-"Tumor_Sample_Barcode"
+mutaion_RT_good_monto<-read.delim(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/filtered_maf_monto_VAF0.05/pre_postRT_samples_filtered_monto_VAF0.05.maf", header = TRUE)  ### I changed location to GISTIC analysis folder
+mutaion_RT_good$Variant_Classification<-gsub("Splice sites","Splice_Site",mutaion_RT_good$Variant_Classification)
+
+
+vc_cols = RColorBrewer::brewer.pal(n = 6, name = 'Accent')
+names(vc_cols) = c(
+  'Frame_Shift_Del',
+  'Missense_Mutation',
+  'Nonsense_Mutation',
+  'Multi_Hit',
+  'Frame_Shift_Ins',
+  'Splice_Site'
+)
+
+#Color coding for FAB classification; try getAnnotations(x = laml) to see available annotations.
+fabcolors = RColorBrewer::brewer.pal(n = 8,name = 'Spectral')
+names(fabcolors) = c("M0", "M1", "M2", "M3", "M4", "M5", "M6")
+
+#vc_nonsyn = c("Frame_Shift_Del", "Frame_Shift_Ins", "Splice_Site", "Translation_Start_Site","Nonsense_Mutation", "Nonstop_Mutation", "In_Frame_Del","In_Frame_Ins", "Missense_Mutation")
+vc_nonsyn = c( "Frame_Shift_Ins", "Splice_Site", "Nonsense_Mutation", "Missense_Mutation")
+vc_nonsyn = c(vc_nonsyn, "Silent")
+
+
+
+ordered<-c("SRC125_noRT","SRC127_noRT","SRC130_noRT","SRC167_noRT","SRC168_noRT","SRC169_noRT","SRC170_noRT","SRC171_noRT","SRC172_noRT","SRC173_noRT","TB13092_noRT","TB13712_noRT","TB13959_noRT","TB8016_noRT","TB9051_noRT","TB9573_noRT","SRC125_postRT","SRC127_postRT","SRC150_postRT","SRC167_postRT","SRC169_postRT","SRC170_postRT","SRC171_postRT","TB11985_postRT","TB12052_postRT","TB22446_postRT","TB9051_postRT")
+
+
+
+
 
 
 
