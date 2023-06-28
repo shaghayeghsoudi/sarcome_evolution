@@ -14,8 +14,10 @@ meta$RTstatus<-ifelse(meta$sequenceofsamplevRT== "beforeRT", "noRT",
                         ifelse(meta$sequenceofsamplevRT== "nopreopRT", "noRT",
                         "-")))
 
-meta$unique_sample_id<-gsub("_.*$","",meta$sampleid)
-meta$identifier<-paste(meta$unique_sample_id,meta$RTstatus, sep = "_")
+
+meta_good<-meta%>%mutate(unique_sample_id=gsub("_.*$","",sampleid))%>%
+  mutate(identifier=paste(unique_sample_id,RTstatus, sep = "_"))
+
 
 ######################################
 ### load and read montecarlo files ###
