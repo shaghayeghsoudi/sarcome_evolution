@@ -6,7 +6,7 @@
 ### May 2023
 rm(list = ls())
 library("tidyverse")
-library("plyr")
+library("dplyr")
 library("maftools")
 library("stringr")
 meta<-read.table(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/metadata_updated_shaghayegh_Feb2023_based_on_new_solutions.txt", header = TRUE, sep= "\t")
@@ -16,10 +16,10 @@ meta$RTstatus<-ifelse(meta$sequenceofsamplevRT== "beforeRT", "noRT",
                         ifelse(meta$sequenceofsamplevRT== "nopreopRT", "noRT",
                         "-")))
 
-
-meta_good<-meta%>%mutate(unique_sample_id=gsub("_.*$","",sampleid))%>%
-  mutate(identifier=paste(unique_sample_id,RTstatus, sep = "_"))
-
+meta_good<-meta%>%
+    rename(sampleid="meta_id")%>% 
+    mutate(unique_sample_id=gsub("_.*$","",meta_id))%>%
+    mutate(identifier=paste(unique_sample_id,RTstatus, sep = "_"))
 
 ######################################
 ### load and read montecarlo files ###
@@ -34,28 +34,19 @@ for (i in 1:length(attackStats_montecarlo)){
     attackStats_montecarlo[[i]]<-cbind(attackStats_montecarlo[[i]],filenames_ssm_cf[i])
     }
 aa_montecarlo<- do.call("rbind", attackStats_montecarlo) 
-aa_montecarlo %>% separate (SAMPLE,c("sample","sample_id","general_info"))
 
-
-
-montecarlo<-aa_montecarlo %>% separate (SAMPLE,c("sample","sample_id","general_info"))
-montecarlo_tumour<-montecarlo[grepl("T",montecarlo$general_info),]   ### subset muttaions only to tumour mutations
-
-
-montecarlo_tumour$general_info<-gsub("T","",montecarlo_tumour$general_info)
-montecarlo_tumour$meta_id<-paste(montecarlo_tumour$sample_id,montecarlo_tumour$general_info, sep = "_")
-montecarlo_tumour_meta<-merge(montecarlo_tumour,meta, by.x ="meta_id" , by.y = "sampleid")
-
-montecarlo_tumour_meta$chrom_pos<-paste(montecarlo_tumour_meta$CHR,montecarlo_tumour_meta$POSITION , sep = "-")
-montecarlo_tumour_meta$monto_ID<-paste(montecarlo_tumour_meta$identifier, montecarlo_tumour_meta$chrom_pos,  sep = "-")
-montecarlo_tumour_meta$monto_ID<-gsub("chr","",montecarlo_tumour_meta$monto_ID)
-
-##match_colB<-c("identifier","CHR", "POSITION")
-#montecarlo_tumour_meta$monto_ID <- apply( montecarlo_tumour_meta[ , match_colB] , 1 , paste0 , collapse = "-" )
-
-montecarlo_tumour_meta_dedup<-montecarlo_tumour_meta[!duplicated(montecarlo_tumour_meta$monto_ID),]
-monto_df<-montecarlo_tumour_meta_dedup[,c("meta_id","identifier","monto_ID")]  ## final table to be merged with variants raw
-
+monto_df<-aa_montecarlo %>% separate (SAMPLE,c("sample","sample_id","general_info")) %>% 
+   filter(grepl("T",general_info))%>% 
+   mutate(general_info=gsub("T","",general_info),meta_id=paste(sample_id,general_info, sep = "_")) %>% 
+   mutate(AF=TUMOR_DEPTH/TOTAL_DEPTH) %>%
+   filter(AF > 0.05) %>%
+   inner_join(meta_good,by = "meta_id")%>% 
+   mutate(chrom_pos=paste(CHR,POSITION , sep = "_"))%>%
+   mutate(monto_ID=paste(identifier,chrom_pos , sep = "_")) %>%
+   filter(!duplicated(monto_ID)) %>%
+   select(meta_id,identifier,monto_ID)
+   
+   
 ###################################
 ### load and read all maf files ###
 ###################################
