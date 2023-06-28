@@ -40,12 +40,12 @@ monto_df<-aa_montecarlo %>% separate (SAMPLE,c("sample","sample_id","general_inf
    mutate(general_info=gsub("T","",general_info),meta_id=paste(sample_id,general_info, sep = "_")) %>% 
    mutate(AF=TUMOR_DEPTH/TOTAL_DEPTH) %>%
    filter(AF > 0.05) %>%
-   inner_join(meta_good,by = "meta_id")%>% 
-   mutate(chrom_pos=paste(CHR,POSITION , sep = "_"))%>%
-   mutate(monto_ID=paste(identifier,chrom_pos , sep = "_")) %>%
-   filter(!duplicated(monto_ID)) %>%
-   select(meta_id,identifier,monto_ID)
-   
+   inner_join(meta_good,by = "meta_id") %>% 
+   mutate(chrom_pos=paste(CHR,POSITION , sep = "_")) %>%
+   mutate(var_id=paste(identifier,chrom_pos , sep = "_")) %>%
+   filter(!duplicated(var_id)) %>%
+   select(meta_id,identifier,var_id) %>%
+   mutate(var_id=gsub("chr","",var_id))
    
 ###################################
 ### load and read all maf files ###
@@ -61,6 +61,69 @@ for (i in 1:length(attackStats_CN)){
     }
 aa <- do.call("rbind", attackStats_CN) 
 aa$sample_id<-gsub("filtered_variants/selected/", "",gsub(".filtered.variants.oxomerge.final.txt_selected","",aa[,10]))
+
+mutaion_RT<-aa %>% 
+   select(-c("V8","filenames_CN[i]")) %>% 
+   rename(V1="Chromosome",V2="Start" ,V3="End",V4="Ref",V5="Alt",V6="Coding",V7="Gene",V9="Impact") %>% 
+   mutate(Chromosome=gsub("chr","",Chromosome)) %>% 
+   mutate(pos_id=paste(Chromosome,Start, sep = "_")) %>% 
+   mutate(meta_id=sub('.*/\\s*', '', sample_id)) %>% 
+   inner_join(meta_good,by = "meta_id")%>% 
+   mutate(var_id=paste(identifier, Chromosome , Start ,sep = "_")) %>% 
+   filter(!row_number() %in% 1) %>% 
+   mutate(Variant_Type=rep("SNP"))
+   
+mutaion_RT$Impact[mutaion_RT$Coding== "splicing"] <- "Splice_Site"
+mutaion_RT$Impact[mutaion_RT$Coding== "UTR5"] <- "5'UTR"
+mutaion_RT$Impact[mutaion_RT$Coding== "UTR3"] <- "3'UTR"
+
+
+mutaion_RT$Impact <- gsub("synonymous SNV", "Silent",
+           gsub("nonsynonymous SNV", "Missense_Mutation",
+           gsub("stopgain", "Nonsense_Mutation", 
+           gsub("stoploss", "Nonsense_Mutation",
+           gsub("frameshift deletion", "Frame_Shift_Del",
+           gsub("frameshift insertion", "Frame_Shift_Ins",
+           gsub("unknown", "Splice_Site",
+           mutaion_RT$Impact)))))))
+
+mutaion_RT_dedup<-mutaion_RT[!duplicated(mutaion_RT$var_id),]    ### remove duplicated rows
+
+
+############################################
+### merge variant files with monto files ###
+############################################
+mutaion_RT_monto<-inner_join(mutaion_RT_dedup,monto_df,by="var_id") %>% 
+    select("Gene","Chromosome","Start","End","Impact","Ref", "Alt","identifier.x","RTstatus","Variant_Type") %>% 
+    filter(Start!="Start") 
+
+
+
+
+
+
+
+mutaion_RT_monto_good<-mutaion_RT_monto[,c("Gene","Chromosome","Start","End","Impact","Ref", "Alt","identifier.x","RTstatus","Variant_Type")]
+mutaion_RT_monto_good<-mutaion_RT_monto_good[mutaion_RT_monto_good$Start!="Start",]
+
+colnames(mutaion_RT_monto_good)<-c("Hugo_Symbol","Chromosome","Start_Position","End_Position","Variant_Classification","Reference_Allele","Tumor_Seq_Allele2","Tumor_Sample_Barcode","RT_status","Variant_Type")
+
+bad_impact<-c("Coding_info")
+mutaion_RT_monto_good<-mutaion_RT_monto_good[!(mutaion_RT_monto_good$Variant_Classification%in%bad_impact),]
+write.table(mutaion_RT_monto_good,file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/pre_postRT_samples_updated_converted_like_updatedmonto.maf",col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
+
+
+
+sar_aml_genes<-c("TP53","MUC16","TNC","CLTC","NBEA","ATRX","RBM10","COL2A1")
+
+
+
+
+
+############
+#### END ###
+#############
+
 shared_clonal_mutations_fix<-aa[-1,c(-10,-8)]
 colnames(shared_clonal_mutations_fix)<-c("Chromosome","Start" ,"End","Ref","Alt","Coding","Gene","Impact","sample_id")
 
