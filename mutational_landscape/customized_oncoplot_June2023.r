@@ -41,8 +41,8 @@ monto_df<-aa_montecarlo %>% separate (SAMPLE,c("sample","sample_id","general_inf
    mutate(AF=TUMOR_DEPTH/TOTAL_DEPTH) %>%
    filter(AF > 0.05) %>%
    inner_join(meta_good,by = "meta_id") %>% 
-   mutate(chrom_pos=paste(CHR,POSITION , sep = "_")) %>%
-   mutate(var_id=paste(identifier,chrom_pos , sep = "_")) %>%
+   mutate(chrom_pos=paste(CHR,POSITION , sep = "_"),var_id=paste(identifier,chrom_pos , sep = "_")) %>%
+   #mutate(var_id=paste(identifier,chrom_pos , sep = "_")) %>%
    filter(!duplicated(var_id)) %>%
    select(meta_id,identifier,var_id) %>%
    mutate(var_id=gsub("chr","",var_id))
