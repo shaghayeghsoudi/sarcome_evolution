@@ -7,6 +7,8 @@ library("dndscv")
 library("dplyr")
 library("VennDiagram")
 library("maftools")
+library("tidyr")
+
 
 setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs")
 
@@ -15,10 +17,6 @@ meta<-read.table(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/metada
 meta_good<-meta %>% 
     rename(sampleid= "sample_id", sequenceofsamplevRT="RT_status") %>% 
     mutate(unique_sample_id=gsub("_.*$","",sample_id))
-
-
-colnames(meta)<-c("sample_id", "purity","ploidy","RT_status","RT_code")
-meta$unique_sample_id<-gsub("_.*$","",meta$sample_id)
 
 
 ### load and read all maf files
@@ -147,136 +145,3 @@ colnames(mutaion_for_dnds)<-c("sampleID","chr","pos","ref","mut")
   
 
 
-######################## MafTools ##############
-#################################################
-#### analyze the data with maftools #############
-rm(list = ls())
-library("maftools")
-setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs")
-mutaion_RT_good<-read.delim(file = "all_samples_updated_converted_like_multi_reginal_combined.maf", header = TRUE)
-#mutaion_RT_good<-mutaion_RT_good[!(mutaion_RT_good$Reference_Allele=="-"),]
-
-sar_laml = read.maf(maf = mutaion_RT_good)
-
-#ellis_BD <- shared_clonal_mutations_fix[order(shared_clonal_mutations_fix$sampleID,shared_clonal_mutations_fix$chr,shared_clonal_mutations_fix$pos),]
-#ind = which(diff(ellis_BD $Start_Position)==1)
-#ellis_consecutive<-ellis_BD [unique(sort(c(ind,ind+1))),]
-#toDelete <- seq(1, nrow(ellis_consecutive), 2)
-#toDelete_df<-ellis_consecutive[toDelete ,]
-
-#Shows sample summry.
-getSampleSummary(sar_laml)
-#Shows gene summary.
-getGeneSummary(sar_laml)
-#shows clinical data associated with samples
-getClinicalData(sar_laml)
-#Shows all fields in MAF
-getFields(sar_laml)#
-#Writes maf summary to an output file with basename laml.
-#write.mafSummary(maf = sar_laml, basename = 'laml')
-
-###Plotting MAF summary
-plotmafSummary(maf = sar_laml, rmOutlier = TRUE, addStat = 'median', dashboard = TRUE, titvRaw = FALSE)
-
-### draw oncolplot
-sig_genes<-read.table(file ="~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/dnds/dnds_sel_cv_fdr0.01_all_samples.table", header = TRUE)
-sar_aml_genes<-sig_genes[!grepl("RBM25",sig_genes$gene_name),]
-sar_aml_genes<-sar_aml_genes[!grepl("MYO3A",sar_aml_genes$gene_name),]
-sar_aml_genes<-sar_aml_genes[!grepl("OR10G8",sar_aml_genes$gene_name),]
-sar_aml_genes<-sar_aml_genes[!grepl("HERC1",sar_aml_genes$gene_name),]
-
-
-
-sar_aml_genes<-sar_aml_genes[1:50,1]
-#sar_aml_genes<-sar_aml_genes[-c("RBM25","MYO3A","OR10G8","HERC1")])
-
-
-
-
-oncoplot(maf = sar_laml, genes = sar_aml_genes)
-
-#laml.titv = titv(maf = laml, plot = FALSE, useSyn = TRUE)
-#plot titv summary
-#plotTiTv(res = laml.titv)
-
-
-maf_meta<-mutaion_RT_good[,c("Tumor_Sample_Barcode","RT_status","RT_code")]
-colnames(maf_meta)<-c("Tumor_Sample_Barcode","RT_status","RT_code")
-maf_meta<-maf_meta[!(duplicated(maf_meta$Tumor_Sample_Barcode)),]
-
-sar_laml = read.maf(maf = mutaion_RT_good, clinicalData = maf_meta)
-
-#oncoplot(maf = sar_laml, genes = sar_aml_genes, clinicalFeatures = 'RT_status',sortByAnnotation = TRUE,fontSize = 0.4, top = 2)
-oncoplot(maf = sar_laml,  clinicalFeatures = 'RT_status',sortByAnnotation = TRUE,fontSize = 0.5, top = 20)
-
-
-rainfallPlot(maf = sar_laml, detectChangePoints = TRUE, pointSize = 0.4)
-
-
-
-
-
-##############
-#### from nonmerged
-
-
-
-
-mutaion_RT<-mutaion_RT[mutaion_RT$Start!="777428",]
-
-### adjust maf file format               
-mutaion_RT$Variant_Classification[mutaion_RT$Coding== "splicing"] <- "Splice_Site"
-mutaion_RT$Variant_Classification[mutaion_RT$Coding== "UTR5"] <- "5'UTR"
-mutaion_RT$Variant_Classification[mutaion_RT$Coding== "UTR3"] <- "3'UTR"
-mutaion_RT$Variant_Classification[mutaion_RT$Impact== "synonymous SNV"] <- "Silent"
-mutaion_RT$Variant_Classification[mutaion_RT$Impact== "stopgain"] <- "Nonsense_Mutation"
-mutaion_RT$Variant_Classification[mutaion_RT$Impact== "nonsynonymous SNV"] <- "Missense_Mutation"
-mutaion_RT$Variant_Classification[mutaion_RT$Impact== "frameshift insertion"] <- "Frame_Shift_Ins"
-
-mutaion_RT<-mutaion_RT[!(mutaion_RT$Impact=="unknown"),]
-mutaion_RT_good<-mutaion_RT%>%drop_na(Variant_Classification)
-
-
-
-mutaion_RT_good<-mutaion_RT_good[,c("sample_id","Chromosome", "Start","End","Ref","Alt", "Gene","RT_status", "RT_code","Variant_Classification")]
-colnames(mutaion_RT_good)<-c("Tumor_Sample_Barcode","Chromosome","Start_Position","End_Position","Reference_Allele","Tumor_Seq_Allele2","Hugo_Symbol","RT_status", "RT_code","Variant_Classification")
-mutaion_RT_good<-mutaion_RT_good[,c("Hugo_Symbol","Chromosome","Start_Position","End_Position","Variant_Classification","Reference_Allele","Tumor_Seq_Allele2","Tumor_Sample_Barcode","RT_status", "RT_code")]
-
-mutaion_RT_good$Variant_Type<-rep("SNP") #### canbe used as maf file 
-mutaion_RT_good$Variant_Type[mutaion_RT_good$Variant_Classification=="Frame_Shift_Ins"]<-"INS"
-
-#### save prepared maf like file ####
-write.table(mutaion_RT_good,file = "out_res_samples_updated_regions_NOTmerged.maf", col.names = TRUE, row.names = FALSE, sep = "\t", quote = FALSE)
-### Run dnds
-
-mutaion_for_dnds<-mutaion_RT_good[,c("Tumor_Sample_Barcode","Chromosome","Start_Position","Reference_Allele","Tumor_Seq_Allele2")]
-colnames(mutaion_for_dnds)<-c("sampleID","chr","pos","ref","mut")
-#muts<-c("A" ,"C" , "G" , "T")
-#
-
-
-## maftools
-
-
-mutaion_RT_good<-read.delim(file = "out_res_samples_updated_regions_merged.maf", header = TRUE)
-#mutaion_RT_good<-mutaion_RT_good[!(mutaion_RT_good$Reference_Allele=="-"),]
-mutaion_RT_good$Variant_Type<-rep("SNP") #### canbe used as maf file 
-mutaion_RT_good$Variant_Type[mutaion_RT_good$Variant_Classification=="Frame_Shift_Ins"]<-"INS"
-
-sar_aml_genes<-signif_genes[1:20,1]
-
-oncoplot(maf = sar_laml, genes =   sar_aml_genes)
-
-
-
-maf_meta<-mutaion_RT_good[,c("Tumor_Sample_Barcode","RT_status","RT_code")]
-colnames(maf_meta)<-c("Tumor_Sample_Barcode","RT_status","RT_code")
-maf_meta<-maf_meta[!(duplicated(maf_meta$Tumor_Sample_Barcode)),]
-
-sar_laml = read.maf(maf = mutaion_RT_good, clinicalData = maf_meta)
-
-#oncoplot(maf = sar_laml, genes = sar_aml_genes, clinicalFeatures = 'RT_status',sortByAnnotation = TRUE,fontSize = 0.4, top = 2)
-oncoplot(maf = sar_laml,  clinicalFeatures = 'RT_status',sortByAnnotation = TRUE,fontSize = 0.5, top = 20)
-
-
-rainfallPlot(maf = sar_laml, detectChangePoints = TRUE, pointSize = 0.4)
