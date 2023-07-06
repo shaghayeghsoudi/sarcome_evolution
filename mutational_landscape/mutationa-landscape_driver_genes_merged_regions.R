@@ -4,14 +4,17 @@
 rm(list = ls())
 library("tidyverse")
 library("dndscv")
-library("plyr")
+library("dplyr")
 library("VennDiagram")
 library("maftools")
 
 setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs")
 
 ## all samples
-meta<-read.table(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/metadata_updated_shaghayegh_Feb2023_based_on_new_solutions.txt", header = TRUE, sep= "\t")
+meta<-read.table(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/metadata_updated_shaghayegh_Feb2023_based_on_new_solutions.txt", header = TRUE, sep= "\t") 
+meta_good<-meta %>% 
+    rename(sampleid= "sample_id", sequenceofsamplevRT="RT_status") %>% 
+    mutate(unique_sample_id=gsub("_.*$","",sample_id))
 
 
 colnames(meta)<-c("sample_id", "purity","ploidy","RT_status","RT_code")
