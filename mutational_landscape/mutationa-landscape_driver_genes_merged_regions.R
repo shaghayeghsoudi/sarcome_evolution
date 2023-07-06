@@ -10,13 +10,10 @@ library("maftools")
 
 setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs")
 
-## selected samples
-#meta<-read.table(file = "selected_samples.txt", header = FALSE, sep= "\t")
-#colnames(meta)<-c("sample_id","purity","ploidy","RT_status","RT_status2","RT_staus_code")
-#colnames(meta)<-c("sample_id","RT_status","RT_staus_code")
-
 ## all samples
-meta<-read.table(file = "metadata_updated.txt", header = FALSE, sep= "\t")[,c(1:4,6)]
+meta<-read.table(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/metadata_updated_shaghayegh_Feb2023_based_on_new_solutions.txt", header = TRUE, sep= "\t")
+
+
 colnames(meta)<-c("sample_id", "purity","ploidy","RT_status","RT_code")
 meta$unique_sample_id<-gsub("_.*$","",meta$sample_id)
 
