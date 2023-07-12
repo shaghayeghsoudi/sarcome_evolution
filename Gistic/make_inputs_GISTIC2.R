@@ -5,14 +5,6 @@
 library(tidyr)
 library(dplyr)
 
-
-
-#gistic2 -b ./softwares/test/output_test/ -mk ./softwares/test/examplefiles/markersfile.txt -seg ./softwares/test/examplefiles/segmentationfile.txt -refgene ./softwares/gistic2/support/refgenefiles/hg19.mat 
-#gistic2 -b ./softwares/test/output_sarcoma  -seg ./softwares/test/example_sarcoma/cnv_data_sarcoma_segmenttaion.txt -refgene ./softwares/gistic2/support/refgenefiles/hg19.mat 
-gistic2 -b ./99-base_outputs-merged-per-sample  -seg ./03-inputs-gistic/cnv_data_sarcoma_merged_across_regions_meanCNA.txt -refgene /home/users/shsoudi/softwares/gistic2/support/refgenefiles/hg19.mat 
-gistic2 -b ./03-inputs-gistic/test2_out  -seg ./03-inputs-gistic/test2/ditest2_ordered_final.txt -refgene /home/users/shsoudi/softwares/gistic2/support/refgenefiles/hg19.mat 
-
-
 ### assign relevant directory and create a new directory for the final file 
 mainDir <- "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/Correct_CNA_segs_newsolutionsfromanish"
 subDir <- "01-inputs-gistic"
@@ -96,12 +88,14 @@ write.table(cnv_data, file = "cnv_data_sarcoma_all_regions_fromupdated.txt", col
 #
 #
 #}
+#
+#
+#cnv_gr<-GRanges(IRanges(start = qq$Start,end =  qq$End, names =qq$id ),seqnames = qq$Chromosome)
+#pps_gr<-GRanges(IRanges(start = as.numeric(snp_table$Start_Position),end =  as.numeric(snp_table$End_Position)),seqnames = snp_table$Chromosome)
+#
+#countOverlaps(gr, grl)
 
+### GISTIC running command ###
+gistic2 -b ./99-outputs  -seg ./01-input-GISTIC/cnv_data_sarcoma_all_regions_fromupdated.txt -refgene /home/users/shsoudi/softwares/gistic2/support/refgenefiles/hg19.mat -rx 0
+#gistic2 -b ./03-inputs-gistic/test2_out  -seg ./03-inputs-gistic/test2/ditest2_ordered_final.txt -refgene /home/users/shsoudi/softwares/gistic2/support/refgenefiles/hg19.mat 
 
-
-
-
-cnv_gr<-GRanges(IRanges(start = qq$Start,end =  qq$End, names =qq$id ),seqnames = qq$Chromosome)
-pps_gr<-GRanges(IRanges(start = as.numeric(snp_table$Start_Position),end =  as.numeric(snp_table$End_Position)),seqnames = snp_table$Chromosome)
-
-countOverlaps(gr, grl)
