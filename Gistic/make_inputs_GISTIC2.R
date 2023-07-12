@@ -44,7 +44,8 @@ seg_files<-lapply(list_cnvs, function(x){
 cnv_data <- do.call("rbind", seg_files) %>% 
    mutate(Sample=gsub("-.*$","",Sample), Chromosome= gsub("chr","",Chromosome),Seg.CN = (log2(Corrected_Copy_Number) -1 )) %>% 
    select(Sample,Chromosome ,Start, End, Length.snp.,Seg.CN) %>% 
-   filter(Sample%in%meta_raw$sampleid)
+   filter(Sample%in%meta_raw$sampleid) %>% 
+   mutate(Chromosome=gsub("X","23",Chromosome))
 
 
 
