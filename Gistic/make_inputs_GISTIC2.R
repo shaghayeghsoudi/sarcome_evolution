@@ -3,7 +3,11 @@
 
 #library(GenomicRanges)
 library(tidyr)
+library(tidyverse)
 library(dplyr)
+library(plyr)
+library("maftools")
+
 
 ### assign relevant directory and create a new directory for the final file 
 mainDir <- "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/Correct_CNA_segs_newsolutionsfromanish"
@@ -26,10 +30,10 @@ meta_raw$RTstatus<-ifelse(meta_raw$sequenceofsamplevRT== "beforeRT", "noRT",
                         ifelse(meta_raw$sequenceofsamplevRT== "nopreopRT", "noRT",
                         "-")))
 
-#meta<-meta_raw%>%
-#  rename(sampleid="meta_id") %>%
-#  mutate(unique_sample_id=gsub("_.*$","",meta_id)) %>%
-#  mutate(identifier=paste(unique_sample_id,RTstatus, sep = "_"))
+meta<-meta_raw%>%
+  #rename(sampleid="meta_id") %>%
+  mutate(unique_sample_id=gsub("_.*$","",sampleid)) %>%
+  mutate(identifier=paste(unique_sample_id,RTstatus, sep = "_"))
 
 
 
@@ -97,6 +101,6 @@ write.table(cnv_data, file = "cnv_data_sarcoma_all_regions_fromupdated.txt", col
 #countOverlaps(gr, grl)
 
 ### GISTIC running command ###
-gistic2 -b ./99-outputs  -seg ./01-input-GISTIC/cnv_data_sarcoma_all_regions_fromupdated.txt -refgene /home/users/shsoudi/softwares/gistic2/support/refgenefiles/hg19.mat -rx 0
+gistic2 -b ./99-outputs  -seg ./01-input-GISTIC/cnv_data_sarcoma_all_regions_fromupdated.txt -refgene /home/users/shsoudi/softwares/gistic2/support/refgenefiles/hg19.mat -rx {0}
 #gistic2 -b ./03-inputs-gistic/test2_out  -seg ./03-inputs-gistic/test2/ditest2_ordered_final.txt -refgene /home/users/shsoudi/softwares/gistic2/support/refgenefiles/hg19.mat 
 
