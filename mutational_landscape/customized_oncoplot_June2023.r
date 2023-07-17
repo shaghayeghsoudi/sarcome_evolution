@@ -5,11 +5,16 @@
 ### original author: Shaghayegh Soudi
 ### May 2023
 rm(list = ls())
-library("tidyverse")
-library("dplyr")
-library("plyr") 
-library("maftools")
-library("stringr")
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(ggplot2)
+library(tidyverse)
+library(UpSetR)
+library(ComplexUpset)
+library(data.table)
+library(maftools)
+library(stringr)
 meta<-read.table(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs/metadata_updated_shaghayegh_Feb2023_based_on_new_solutions.txt", header = TRUE, sep= "\t")
 
 meta$RTstatus<-ifelse(meta$sequenceofsamplevRT== "beforeRT", "noRT",
@@ -21,6 +26,9 @@ meta_good<-meta%>%
     rename(sampleid="meta_id")%>% 
     mutate(unique_sample_id=gsub("_.*$","",meta_id))%>%
     mutate(identifier=paste(unique_sample_id,RTstatus, sep = "_"))
+
+write.table(meta_good, file  = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/filtered_maf_monto_VAF0.05/clinical_meta_good_for_maftools_plot.txt", col.names = TRUE, row.names= FALSE, sep = "\t", quote = FALSE)
+
 
 ######################################
 ### load and read montecarlo files ###
@@ -102,10 +110,13 @@ mutaion_RT_monto<-inner_join(mutaion_RT_dedup,monto_df,by="var_id") %>%
 write.table(mutaion_RT_monto,file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/filtered_maf_monto_VAF0.05/pre_postRT_samples_filtered_monto_VAF0.05.maf",col.names = TRUE, row.names = FALSE, sep = "\t",quote = FALSE)
 sar_aml_genes<-c("TP53","MUC16","TNC","CLTC","NBEA","ATRX","RBM10","COL2A1")
 
+##### PLOTING ######
 #######################################
-###### plot variants with maf tools ###
+###### plot variants with maftools ###
 #######################################
+meta_good<-read.table(file= "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/filtered_maf_monto_VAF0.05/clinical_meta_good_for_maftools_plot.txt", header = TRUE)
 colnames(meta_good)[9]<-"Tumor_Sample_Barcode"
+
 mutaion_RT_good_monto_good<-read.delim(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/filtered_maf_monto_VAF0.05/pre_postRT_samples_filtered_monto_VAF0.05.maf", header = TRUE)  ### I changed location to GISTIC analysis folder
 mutaion_RT_good_monto_good$Variant_Classification<-gsub("Splice sites","Splice_Site",mutaion_RT_good_monto_good$Variant_Classification)
 
@@ -171,23 +182,61 @@ oncoplot(maf = laml, draw_titv = TRUE ,
 
 #########################
 ####### plot GISTIC #####
-all_lesions<-read.delim("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/all_lesions.conf_75.txt")
+#all_lesions<-read.delim("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/all_lesions.conf_75.txt")
 
+
+### load all lesions files and update the sample names (the original all lesions fine has region id as sample ID, we need to convert it into no/postRT ID )
+all_lesions<-read.delim("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/all_lesions.conf_75.txt")
 ### select colnames with sample iD
 gistic_samples<-all_lesions %>%
-  select(matches('SRC|TB')) %>%
+  dplyr::select(matches('SRC|TB')) %>%
   colnames()
 
-meta_gistic<-meta[meta$sampleid%in%gistic_samples,]
+meta_gistic<-meta_good[meta_good$meta_id%in%gistic_samples,]
 meta_gistic<-meta_gistic[,"Tumor_Sample_Barcode"]
 
 
 colnames(all_lesions)[10:36]<-meta_gistic
 all_lesions <- all_lesions [1: ncol(all_lesions)-1 ]
-write.table(all_lesions,file = "~/Desktop/out_gistic/all_legions_updated.txt", col.names = TRUE, row.nam = FALSE, sep = "\t", quote = FALSE)
+write.table(all_lesions,file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/all_legions_header_updated.txt", col.names = TRUE, row.nam = FALSE, sep = "\t", quote = FALSE)
 
+#############################################################
+##### Ignore this part if the conditon does not meet ###
+##### Here is for samlples with no peaks when I ran GISTIC with the highest purity region (I ran GISTIC for all regions and replaced regions with peaks with regions without peak in GISTIC with highest region)
 
+#all_lesions_regions<-read.delim("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/Correct_CNA_segs_newsolutionsfromanish_and_all_regions_run/99-outputs/all_lesions.conf_75.txt")
+#all_lesions_regions_matched_highest<-all_lesions_regions[all_lesions_regions$Descriptor%in%all_lesions$Descriptor,]
+#
+#samples_with_nohigh_peak<-c("SRC167_noRT","SRC150_postRT","SRC171_postRT","TB11985_postRT","TB12052_postRT")
+#samples_with_nohigh_peak<-c("SRC150_3","SRC171_5","TB12052_9")
+#
+#samples_with_nohigh_peak_meta<-meta_good[meta_good$meta_id%in%samples_with_nohigh_peak,"meta_id"]
+##
+#aa<-all_lesions_regions_matched_highest[,1:9]
+#bb<-all_lesions_regions_matched_highest[,names(all_lesions_regions_matched_highest)%in%samples_with_nohigh_peak_meta]
+#cc<-cbind(aa,bb)
+#names(cc)[10:12]<-c("SRC150_postRT","SRC171_postRT","TB12052_postRT")
 
+#out_res<-NULL
+#for(ii in 1:length(all_lesions)){
+#
+#  focal<-all_lesions[ii,]
+#  if(focal$Descriptor%in%cc$Descriptor){
+#
+#    focal[names(focal)=="SRC150_postRT"]<-cc[cc$Descriptor==focal$Descriptor,"SRC150_postRT"][1]
+#   focal[names(focal)=="SRC171_postRT"]<-cc[cc$Descriptor==focal$Descriptor,"SRC171_postRT"][1]
+#    focal[names(focal)=="TB12052_postRT"]<-cc[cc$Descriptor==focal$Descriptor,"TB12052_postRT"][1]
+#
+##  } else {all_lesions[ii,]}
+#
+#  out_res<-rbind(focal,out_res)
+#
+#}
+write.table(out_res,file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/all_legions_header__and_bad_regions_updated.txt", col.names = TRUE, row.nam = FALSE, sep = "\t", quote = FALSE)
+#shared_descriptors<-c("13q14.2","5p15.33","2q37.3","6q24.3","20p13","1q42.13","1q44","2q32.1")
+############################################################################
+############################################################################
+############################################################################
 vc_cols2 = c("#0484e6","tomato")
 names(vc_cols2) = c(
   'Del',
@@ -195,12 +244,13 @@ names(vc_cols2) = c(
 )
 
 
-laml.gistic_del <- readGistic(gisticAllLesionsFile ="~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/all_lesions.conf_75.txt", 
+laml.gistic_del <- readGistic(gisticAllLesionsFile ="~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/all_legions_header__and_bad_regions_updated.txt", 
                                                   #gisticAmpGenesFile = "~/Desktop/out_gistic/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/amp_genes.conf_75.txt", 
                                                   gisticDelGenesFile = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/del_genes.conf_75.txt", 
                                                   cnLevel = "all", gisticScoresFile = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/scores.gistic")
 
 
+bands_del<-c("DP_8:9p21.3","DP_10:13q14.2","DP_4:2q37.3","DP_1:1q42.13","DP_11:16q24.3", "DP_14:20p13","DP_13:17q11.2" ,"DP_9:11q24.2", "DP_2:1q44","DP_5:3p14.2", "DP_12:17p13.1","DP_6:7q35","DP_3:2q32.1","DP_7:8p12")
 
 gisticOncoPlot(gistic = laml.gistic_del,  
     removeNonAltered = FALSE,
@@ -208,6 +258,7 @@ gisticOncoPlot(gistic = laml.gistic_del,
     #clinicalFeatures = "RTstatus",
     sortByAnnotation = TRUE,
     colors = vc_cols2,bgCol="white",
+    bands=bands_del,
     fontSize=0.5,
     showTumorSampleBarcodes = TRUE, 
     SampleNamefontSize = 0.8,
@@ -215,10 +266,10 @@ gisticOncoPlot(gistic = laml.gistic_del,
 
 
 ##### Amplifications (temporray path, works)
-laml.gistic <- readGistic(gisticAllLesionsFile ="~/Desktop/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/all_lesions.conf_75.txt", 
-                          gisticAmpGenesFile = "~/Desktop/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/amp_genes.conf_75.txt", 
+laml.gistic <- readGistic(gisticAllLesionsFile ="~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/all_legions_header__and_bad_regions_updated.txt", 
+                          gisticAmpGenesFile = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/amp_genes.conf_75.txt", 
                           #gisticDelGenesFile = "~/Desktop/out_gistic/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/del_genes.conf_75.txt", 
-                          cnLevel = "all", gisticScoresFile = "~/Desktop/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/scores.gistic")
+                                                  cnLevel = "all", gisticScoresFile = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/scores.gistic")
 
 bands_amp<-c("AP_2:1p32.1","AP_3:1p31.2","AP_5:1q21.1","AP_6:3p12.1","AP_7:5p15.33", "AP_8:7p22.1","AP_9:17p11.2" ,"AP_10:20q11.22", "AP_12:20q13.2","AP_13:20q13.33", "AP_15:22q12.3")
 gisticOncoPlot(gistic = laml.gistic,  removeNonAltered = FALSE,clinicalData = getClinicalData(x = laml),
