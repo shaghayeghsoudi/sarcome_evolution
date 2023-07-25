@@ -169,7 +169,7 @@ for (kk in 1:length(samples)){  ### loop through each sample
     } ## number of callers loop
 
     #out_res[out_res$SVTYPE=="INS","END"]<-out_res[out_res$SVTYPE=="INS","start"]+out_res[out_res$SVTYPE=="INS","SVLEN"]
-    out_res_final<-out_res[,c("SVTYPE","seqnames","start","f","CHR2","END","r","CuteSV", "nanoSV", "Sniffles", "Svim" )]
+    out_res_final<-out_res[,c("SVTYPE","seqnames","start","f","CHR2","END","r","ALT","CuteSV", "nanoSV", "Sniffles", "Svim" )] ## ALT column included for bracket information
     out_res_final_dedup<-out_res_final %>% distinct()
 
     setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/long_reads/pacbio1/sv_calling/survivor/panels")
