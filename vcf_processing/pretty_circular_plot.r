@@ -16,6 +16,7 @@ library(UpSetR)
 library(ComplexUpset)
 library(data.table)
 library("plyranges")
+library("circlize")
 #library(stringi)
 
 #### load hg19 cosmic cancer genes
@@ -163,12 +164,14 @@ for (kk in 1:length(samples)){  ### loop through each sample
     arrange((chr)) %>%
     mutate(chr= paste("chr",chr, sep= ""))
 
+#chroms<-c("chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr22")
 
 pdf(file = paste("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/long_reads/pacbio1/sv_calling/circus_plot/cell_lines/circlize_plot_overlaped_with_Cosmic",samples[kk],".pdf", sep = ""),width = 5, height = 5)
     circos.par(gap.degree = 2, start.degree = 170)
     circos.initializeWithIdeogram(
     plotType = c("ideogram", "labels"), species = "hg19",
-    chromosome.index = c(chroms$chr))
+    chromosome.index = c(chroms))
+    #chromosome.index = c(chroms$chr))
     #sector.width = c(3, 1, 1, 1,1))
  
 
