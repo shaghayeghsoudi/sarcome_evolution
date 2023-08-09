@@ -86,18 +86,21 @@ good_mat<-mat %>% mutate(sample_info=sub('.*/\\s*', '',gsub("survivor_merged_fil
 good_mat$sample_info<-gsub("overlapped_","",gsub("_matrix.txt","",good_mat$sample_info))
 
 good_mat_fin<-good_mat%>%
-        rename(V1="CuteSV" , V2="nanoSV" , V3= "Sniffles",V4="Svim") %>% 
-        mutate(caller_count=rowSums(.[1:4])) %>% 
-        mutate(sample_info=gsub("ways","caller",sample_info)) 
+    rename(V1="CuteSV" , V2="nanoSV" , V3= "Sniffles",V4="Svim") %>% 
+    mutate(caller_count=rowSums(.[1:4])) %>% 
+    mutate(sample_info=gsub("ways","caller",sample_info)) 
        
-good_mat_fin<-good_mat_fin[,colnames(good_mat_fin)!="raw_id"]
+good_mat_fin2<-good_mat_fin[,colnames(good_mat_fin)!="raw_id"] %>% 
+              mutate(sample=gsub("_.*$","",sample_info)) %>% 
+              mutate(sample = gsub ("1","GCT",
+              gsub("2","RD",
+              gsub("3","SW",sample))))
+              
        
-both<-cbind(type_data_inforow,good_mat_fin) %>% 
-      mutate(sample=gsub("_.*$","",sample_info)) %>% 
-      mutate(sample=gsub("1","GCT",sample)) %>% 
-      mutate(sample=gsub("2","RD",sample)) %>%
-      mutate(sample=gsub("3","SW",sample))
-   
+both<-cbind(type_data_inforow,good_mat_fin2)
+
+#both<-both[!duplicated(as.list(both))]   ### remove duplicated column 
+both<-both[,-11]   
 
 chroms<-c("chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr21","chr22","chrX")   
 both<-both[both$seqnames%in%chroms,]
@@ -106,7 +109,7 @@ both<-both[both$CHR2%in%chroms,]
 both_three_ways<-both %>% 
       mutate(caller_count_info<-sub('.*\\_', '', both$sample_info)) %>% 
       filter(caller_count >= 3) %>%     #### take variants detected by at least three callers
-      dplyr::select(seqnames,start, end ,CHR2, END ,SVLEN ,SVTYPE, SUPP ,STRANDS ,CuteSV,nanoSV ,Sniffles ,Svim ,sample_info.1 ,caller_count ,sample) %>% 
+      dplyr::select(seqnames,start, end ,CHR2, END ,SVLEN ,SVTYPE, SUPP ,STRANDS ,CuteSV,nanoSV ,Sniffles ,Svim ,sample_info ,caller_count ,sample) %>% 
       mutate(uniq_id = paste(seqnames, start,end,CHR2, END ,SVLEN ,SVTYPE,sample, sep = "_"))
 
 
