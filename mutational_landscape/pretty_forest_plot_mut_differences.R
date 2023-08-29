@@ -6,11 +6,12 @@ library(metafor)
 library(dplyr)
 library(broom)
 
+## useful links
 #https://stackoverflow.com/questions/52784396/fishers-exact-test-on-rows-in-data-frame-r
 #https://stackoverflow.com/questions/63528274/integrate-odds-ratio-and-ci-with-p-value-in-fisher-test-r
 #http://genometoolbox.blogspot.com/2014/06/easy-forest-plots-in-r.html
 
-cases<-read.csv(file="~/Desktop/sarcoma_mutated_cases.csv", header = TRUE)
+cases<-read.csv(file="~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/costum_plots/sarcoma_mutated_cases.csv", header = TRUE)
 
 #Gene Uniradiatted.cases.mutated Uniradiated.cases.unmutated Irradiated.casese.mutated. Irrdiated.cases.unmutated
 #TP53                 TP53                          6                          10                         4
