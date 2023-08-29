@@ -70,6 +70,5 @@ ggplot(mat_fisher_good, aes(y = grp, x = estimate)) +
 #### END ####
 #############
 ## reference links
-#https://stackoverflow.com/questions/52784396/fishers-exact-test-on-rows-in-data-frame-r
 #https://stackoverflow.com/questions/63528274/integrate-odds-ratio-and-ci-with-p-value-in-fisher-test-r
 
