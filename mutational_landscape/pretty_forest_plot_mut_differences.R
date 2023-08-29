@@ -12,7 +12,7 @@ library(broom)
 #http://genometoolbox.blogspot.com/2014/06/easy-forest-plots-in-r.html
 
 cases<-read.csv(file="~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/gistic_onesample_highest_purity_May2023/output_unmarged_ZackNormalised_singlesample_highest_purity_X_plot/costum_plots/sarcoma_mutated_cases.csv", header = TRUE)
-
+#head(cases)
 #Gene Uniradiatted.cases.mutated Uniradiated.cases.unmutated Irradiated.casese.mutated. Irrdiated.cases.unmutated
 #TP53                 TP53                          6                          10                         4
 #MUC16               MUC16                          4                          12                         3
@@ -21,18 +21,11 @@ cases<-read.csv(file="~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/gistic/
 rownames(cases)<-cases[,1]
 cases_good<-cases[,-1]
 
-#genes<-c("TP53","MUC16","TNC","CLTC","NBEA","ATRX","COL2A1","RBM10")
-#apply(cases_good, 1, 
-#      function(x) {
-#        tbl <- matrix(as.numeric(x[1:4]), ncol=2, byrow=T)
-#        fisher.test(tbl, alternative="two.sided")$p.value
-#      })
 
-#qq_genes<-cases_good[rownames(cases_good)%in%genes,]
-
+# For each row of your dataset build a matrix (i.e. a 2 x 2 contingency table) and pass this matrix to the fisher.test command.
 qq<-apply(cases_good, 1, function(x) {
-  tbl <- matrix(as.numeric(x[1:4]), ncol=2, byrow=T)
-  ft <- fisher.test(tbl, alternative="two.sided")
+  tbl <- matrix(as.numeric(x[1:4]), ncol=2, byrow=T)   ### make 2*2 matirx for each row
+  ft <- fisher.test(tbl, alternative="two.sided")      ### doo fisher test for each matrix
   tidy(ft) %>% 
     dplyr::select(estimate, p.value, conf.low, conf.high) }) %>% 
   bind_rows(.id = 'grp')      
