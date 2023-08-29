@@ -4,6 +4,7 @@
 ##########################################################################################
 library(metafor)
 library(dplyr)
+library(ggplot2)
 library(broom)  ## The broom package takes the messy output of built-in functions in R, such as lm, nls, or t.test, and turns them into tidy tibbles
 
 
