@@ -1,8 +1,0 @@
-my_data = data.frame(#
-     y=c(rnorm(1000), rnorm(1000, 0.5), rnorm(1000, 1), rnorm(1000, 1.5)),#
-     x=c(rep('a', 2000), rep('b', 2000)),#
-     m=c(rep('i', 1000), rep('j', 2000), rep('i', 1000)))
-my_data
-ggplot(my_data, aes(x, y, fill = m)) + geom_split_violin()
-load("/Users/shsoudi/Downloads/ldt_long.rda")
-ldt_long.rda
