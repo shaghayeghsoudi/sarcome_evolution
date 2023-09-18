@@ -1,55 +1,49 @@
-
 #!/usr/bin/env snakemake
-
 
 ##### ATTRIBUTION #####
 
-
 # Original Author:  Shaghayegh Soudi
-# Contributors:     
-
+# Contributors:    NA 
 
 
 configfile:
-    "PATH/TO/config.yaml"
+    "/oak/stanford/groups/emoding/analysis/shaghayegh/snakemake-pipelines/battenberg-1.0/config/config.yaml"
 
-SAMPLES, = glob_wildcards(config['data']+"/{id}_bam")
+DIRS,SAMPLES = glob_wildcards(config['data']+"{dir}/{sample}.sorted.deduped.readgroup.bam")
 
+
+rule all:
+    input:
+        expand("results/mapped/{dir}/{sample}.sorted.bam", zip, dir=DIRS, sample=SAMPLES)
 
 
 # Symlinks the input files into the module results directory (under '00-inputs/')
-rule _battenberg_input_bam:
+rule battenberg_input_bam:
     input:
-        bam = expand("{sample_id}-{group}.sorted.deduped.readgroup.bam", sample_id=SAMPLES, group=)
-        bai = expand("{sample_id}-{group}.sorted.deduped.readgroup.bai", sample_id=SAMPLES, group=)
-
+        bam = config['data']+"{dir}/{sample}.sorted.deduped.readgroup.bam"
+        bai = config['data']+"{dir}/{sample}.sorted.deduped.readgroup.bai"       
     output:
-        bam = "{sample_id}/bam/{sample_id}.bam",
-        bai = "{sample_id}/bam/{sample_id}.bam.bai"
-    params:
-        output = config['data']+"/Alignment"    
+        bam = "00-input/bam/{dir}/{sample}.sorted.deduped.readgroup.bam",
+        bai = "00-input/bam/{dir}/{sample}.sorted.deduped.readgroup.bai"  
     shell:
         """
-        mkdir -p {wildcards.sample_id}/bam
         ln -s {input.bam} {output.bam}
         ln -s {input.bai} {output.bai}
         """
 
 
-##########################
-#########################
-rule _infer_patient_sex:
+rule infer_patient_sex:
     input: 
-        normal_bam = expand("{sample_id}.final.bam", sample=SAMPLES),
+        normal_bam = rules.battenberg_input_bam.output,
         fasta = reference_files("genomes/{genome_build}/genome_fasta/genome.fa")
-    output: sex_result = CFG["dirs"]["infer_sex"] + "{seq_type}--{genome_build}/{normal_id}.sex"
+    output: 
+        sex_result ="00-input/infer_sex/{dir}/{sample}.sex"
     resources:
         **CFG["resources"]["infer_sex"]
     log:
         stderr = CFG["logs"]["infer_sex"] + "{seq_type}--{genome_build}/{normal_id}_infer_sex_stderr.log"
     conda:
-        CFG["conda_envs"]["samtools"]
-    group: "setup_run"
+        "envs/samtools.yaml"
     threads: 8
     shell:
         op.as_one_line(""" 
@@ -61,10 +55,53 @@ rule _infer_patient_sex:
         """)
 
 
-          
-            
-   
-            # Convert the subclones.txt (best fit) to igv-friendly SEG files. 
+rule _run_battenberg:
+    input:
+        tumour_bam = rules.battenberg_input_bam.output",
+        normal_bam = rules.battenberg_input_bam.output",
+        sex_result = rules.infer_patient_sex.output,
+        fasta = reference_files("genomes/{genome_build}/genome_fasta/genome.fa"),
+        impute_info = str(rules._battenberg_get_reference.output.impute_info)
+
+    output:
+        refit=CFG["dirs"]["battenberg"] + "{seq_type}--{genome_build}/{tumour_id}--{normal_id}/{tumour_id}_refit_suggestion.txt",
+        sub=CFG["dirs"]["battenberg"] + "{seq_type}--{genome_build}/{tumour_id}--{normal_id}/{tumour_id}_subclones.txt",
+        ac=temp(CFG["dirs"]["battenberg"] + "{seq_type}--{genome_build}/{tumour_id}--{normal_id}/{tumour_id}_alleleCounts.tab"),
+        mb=temp(CFG["dirs"]["battenberg"] + "{seq_type}--{genome_build}/{tumour_id}--{normal_id}/{tumour_id}_mutantBAF.tab"),
+        mlrg=temp(CFG["dirs"]["battenberg"] + "{seq_type}--{genome_build}/{tumour_id}--{normal_id}/{tumour_id}_mutantLogR_gcCorrected.tab"),
+        mlr=temp(CFG["dirs"]["battenberg"] + "{seq_type}--{genome_build}/{tumour_id}--{normal_id}/{tumour_id}_mutantLogR.tab"),
+        nlr=temp(CFG["dirs"]["battenberg"] + "{seq_type}--{genome_build}/{tumour_id}--{normal_id}/{tumour_id}_normalLogR.tab"),
+        nb=temp(CFG["dirs"]["battenberg"] + "{seq_type}--{genome_build}/{tumour_id}--{normal_id}/{tumour_id}_normalBAF.tab"),
+        cp=CFG["dirs"]["battenberg"] + "{seq_type}--{genome_build}/{tumour_id}--{normal_id}/{tumour_id}_cellularity_ploidy.txt"
+    log:
+        stdout = CFG["logs"]["battenberg"] + "{seq_type}--{genome_build}/{tumour_id}--{normal_id}/{tumour_id}_battenberg.stdout.log",
+        stderr = CFG["logs"]["battenberg"] + "{seq_type}--{genome_build}/{tumour_id}--{normal_id}/{tumour_id}_battenberg.stderr.log"
+    params:
+        fasta = reference_files("genomes/{genome_build}/genome_fasta/genome.fa"),
+        script = CFG["inputs"]["battenberg_script"],
+        out_dir = CFG["dirs"]["battenberg"] + "{seq_type}--{genome_build}/{tumour_id}--{normal_id}",
+        ref = CFG["dirs"]["inputs"] + "reference/{genome_build}"
+    conda:
+        CFG["conda_envs"]["battenberg"]
+    resources:
+        **CFG["resources"]["battenberg"]
+    threads:
+        CFG["threads"]["battenberg"]
+    shell:
+       op.as_one_line("""
+        if [[ $(head -c 4 {params.fasta}) == ">chr" ]]; then chr_prefixed='true'; else chr_prefixed='false'; fi;
+        echo "$chr_prefixed"
+        echo "running {rule} for {wildcards.tumour_id}--{wildcards.normal_id} on $(hostname) at $(date)" > {log.stdout};
+        sex=$(cut -f 4 {input.sex_result}| tail -n 1); 
+        echo "setting sex as $sex";
+        Rscript {params.script} -t {wildcards.tumour_id} 
+        -n {wildcards.normal_id} --tb $(readlink -f {input.tumour_bam}) --nb $(readlink -f {input.normal_bam}) -f {input.fasta} --reference $(readlink -f {params.ref})
+        -o {params.out_dir} --chr_prefixed_genome $chr_prefixed --sex $sex --cpu {threads} >> {log.stdout} 2>> {log.stderr} &&  
+        echo "DONE {rule} for {wildcards.tumour_id}--{wildcards.normal_id} on $(hostname) at $(date)" >> {log.stdout}; 
+        """)
+
+ 
+# Convert the subclones.txt (best fit) to igv-friendly SEG files. 
 rule _battenberg_to_igv_seg:
 input:
     sub = rules._run_battenberg.output.sub,
