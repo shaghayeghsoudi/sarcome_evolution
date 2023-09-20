@@ -1,5 +1,5 @@
 #!/bin/sh
-## run example GISTIC analysis
+## run example GISTIC analysis ##
 
 ## output directory
 echo --- creating output directory ---
