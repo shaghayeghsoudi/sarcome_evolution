@@ -1,4 +1,4 @@
-
+## make input file for MRT sotware
 library(tidyverse)
 ## formatted file example
 
