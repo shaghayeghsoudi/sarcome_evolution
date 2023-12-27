@@ -1,6 +1,9 @@
-## make input file for MRT sotware
+## make input "vcf" file for MRT sotware
+
+## Load required libraries
 library(tidyverse)
-## formatted file example
+
+## Example of vcf input file format
 
 ##fileformat=VCFv4.1 
 ##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Allelic depths (number of reads in each observed allele)"> 
@@ -14,7 +17,9 @@ library(tidyverse)
 
 
 setwd("~/Dropbox/cancer_reserach/sarcoma/sarcoma_inputs")
-### load and read all maf files
+
+## This piece of code converts MAF files (or variant files) into a vcf file format required by the software
+## load variant files
 filenames_CN <- list.files("variantfiles_test",pattern="*filtered.variants.oxomerge.final.txt", full.names = TRUE)
 attackStats_CN <- lapply(filenames_CN,function(x) {
      read.csv(x, header=TRUE, sep = "\t")[,c("sample_id","Chromosome","Start","Ref", "Alt","Gene","AF","TumorReads","TumorDepth")]
@@ -55,31 +60,28 @@ prettyprint <- function() {
 
 
 #########################################
-### worked
-prettyprint <- function() {
-     print(df)
-     cat('##FORMAT=<ID=AD,Number=2,Type=Integer,Description= "Allelic depths (number of reads in each observed allele)" >',
-         '\nFORMAT=<ID=AD,Number=2,Type=Integer,Description="Allelic depths (number of reads in each observed allele)" >',
-         "\n##%GC=30")
- }
- prettyprint()
+# worked
+#prettyprint <- function() {
+#     print(df)
+#     cat('##FORMAT=<ID=AD,Number=2,Type=Integer,Description= "Allelic depths (number of reads in each observed allele)" >',
+#         '\nFORMAT=<ID=AD,Number=2,Type=Integer,Description="Allelic depths (number of reads in each observed allele)" >',
+#         "\n##%GC=30")
+# }
+# prettyprint()
 
-### worked
+#worked
 
-
-#### worked
-
-prettyprint <- function() {
-  cat('##fileformat=VCFv4.1',
-  '\n##FORMAT=<ID=AD,Number=2,Type=Integer,Description= "Allelic depths (number of reads in each observed allele)" >',
-  '\n##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total read depth" >',
-  '\n##FORMAT=<ID=FT,Number=1,Type=String,Description="Variant filters" >',
-  '\n##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Tumour ref count" >',
-  '\n##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Tumour alt counth" > \n'  
-      )
-      print(df)
- }
- prettyprint()
+#prettyprint <- function() {
+#  cat('##fileformat=VCFv4.1',
+#  '\n##FORMAT=<ID=AD,Number=2,Type=Integer,Description= "Allelic depths (number of reads in each observed allele)" >',
+#  '\n##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total read depth" >',
+#  '\n##FORMAT=<ID=FT,Number=1,Type=String,Description="Variant filters" >',
+#  '\n##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Tumour ref count" >',
+#  '\n##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Tumour alt counth" > \n'  
+#      )
+#      print(df)
+# }
+# prettyprint()
 
 
 
