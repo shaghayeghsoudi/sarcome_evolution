@@ -1,9 +1,6 @@
 
-**Timing events in human sarcoma tumours**
-*About this repository:*
-
-# Timing events in human sarcoma tumours*
-
+# Timing events in human sarcoma tumours
+# About this repository:
 Developer: Shaghayegh Soudi
 
 # About this repository
