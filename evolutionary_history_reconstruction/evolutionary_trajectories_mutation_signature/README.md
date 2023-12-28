@@ -7,6 +7,6 @@ The type and genomic context of cancer mutations depend on their causes. These c
 The following two R packages were used to identify how mutation processes change during cancer evolution in Sarcomas:
 
 
-*[MutSignatures](https://github.com/dami82/mutSignatures)
+* [MutSignatures](https://github.com/dami82/mutSignatures)
 
-*[MutationalPatterns](https://github.com/UMCUGenetics/MutationalPatterns)
+* [MutationalPatterns](https://github.com/UMCUGenetics/MutationalPatterns)
